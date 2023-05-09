@@ -64,8 +64,8 @@ several messaging services. In particular, it offers the following features:
    clients.
  * Transport agnostic: Messages between clients and the Delivery Service can be
    sent via an arbitrary transport protocol. Additionally, in the federated
-   case, client messages to a foreign server can be forwarded by a client's
-   local instance of this service.
+   case, client messages to a guest Delivery Service can be forwarded by a
+   client's local instance of this service.
  * Multi-device capable: The Delivery Service can be used by multiple devices
    of the same users and supports adding and removing devices of a user.
  * A Queueing Service subcomponent that can be used to implement a queueing
@@ -127,7 +127,7 @@ Client           Delivery Service      Queueing Service
 ~~~
 {: title="Client/Delivery Service communication with fanout" }
 
-In the federated case, messages to a "foreign" Delivery Service can be proxied
+In the federated case, messages to a guest Delivery Service can be proxied
 via the sender's own Delivery Service.
 
 ## High level overview of the operations
@@ -155,17 +155,8 @@ via the sender's own Delivery Service.
 
 ## Authentication
 
-The Delivery Service has two ways of authenticating a request: User-level
-authentication and client-level authentication.
-
-Client-level authentication is used for client-specific group operations. Here,
-clients authenticate to the Delivery Service using the signature key from their
+Clients authenticate to the Delivery Service using the signature key from their
 respective leaf node in the group and a client-specific identifier.
-
-User-level authentication allows clients, for example, to prove that they belong
-to a certain user they add themselves to a group using server-assistance. To
-achieve user-level authentication, clients authenticate using a user-specific
-public key and use the hash of that key as identifier.
 
 Depending on the operation, one or more kind of client identifier can be used:
 

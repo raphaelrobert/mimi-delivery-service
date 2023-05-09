@@ -30,7 +30,7 @@ This document describes the MIMI Delivery Service.
 # Introduction
 
 The MLS protocol document specifies a protocol between two or more clients. The
-MLS architecture document introduce an abstract concept of a "Delivery Service"
+MLS architecture document introduces an abstract concept of a "Delivery Service"
 that is specifically responsible for ordering handshake messages and more
 generally for delivering messages to the intended recipients.
 
@@ -62,6 +62,10 @@ several messaging services. In particular, it offers the following features:
  * Network fluid: While the Delivery Service would typically run as a
    server-side component, the only requirement is that it is accesible by all
    clients.
+ * Transport agnostic: Messages between clients and the Delivery Service can be
+   sent via an arbitrary transport protocol. Additionally, in the federated
+   case, client messages to a guest Delivery Service can be forwarded by a
+   client's local instance of this service.
  * Multi-device capable: The Delivery Service can be used by multiple devices
    of the same users and supports adding and removing devices of a user.
  * A Queueing Service subcomponent that can be used to implement a queueing
@@ -123,6 +127,9 @@ Client           Delivery Service      Queueing Service
 ~~~
 {: title="Client/Delivery Service communication with fanout" }
 
+In the federated case, messages to a guest Delivery Service can be proxied
+via the sender's own Delivery Service.
+
 ## High level overview of the operations
 
  * Group creation/deletion
@@ -181,26 +188,24 @@ struct {
 } DSSenderID;
 ~~~
 
-To authenticate, the client sends the following token to the Delivery Service:
+To authenticate, the client signs the corresponding request. The key used to
+sign/verify a given request depends on the `sender_id`.
 
 ~~~
+
 struct {
-   opaque group_id<V>;
-   uint32 timestamp;
    DSSenderID sender_id;
-   // Signature over DSAuthTokenTBS
+   DSRequest request;
+   // Signature over DSMessageTBS
    opaque signature<0..255>;
-} DSAuthToken;
+} DSMessage;
 
 struct {
-   opaque group_id<V>;
-   uint32 timestamp;
    DSSenderID sender_id;
-} DSAuthTokenTBS;
+   DSRequest request;
+} DSMessageTBS;
 ~~~
 
-The Delivery Service can mandate additional authentication mechanisms, such as
-user-based authentication.
 
 ## Request/Response scheme
 
@@ -384,7 +389,7 @@ extended to protect the group state on the Delivery Service. This can happen
 through two complementary mechanisms:
 
   * Unlinking member credentials from credentials issued by the Authentication
-    Service, providing pseudonimity at the Delivery Service level
+    Service, providing pseudonymity at the Delivery Service level
   * Encrypting the group state with a key that is only known to the group
     members, providing encryption at rest
 

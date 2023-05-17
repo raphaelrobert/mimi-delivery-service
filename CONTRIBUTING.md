@@ -23,9 +23,9 @@ Discussion of this work occurs on various IETF mailing lists.
 In addition to contributions in GitHub, you are encouraged to participate in 
 discussions on these lists.
 
-Batched Token Issuance is covered in
-[privacy pass](https://mailarchive.ietf.org/arch/browse/privacy-pass/)
-([subscribe](https://www.ietf.org/mailman/listinfo/privacy-pass)).  
+MIMI Delivery Service is covered in
+[MIMI](https://mailarchive.ietf.org/arch/browse/mimi/)
+([subscribe](https://www.ietf.org/mailman/listinfo/mimi)).  
 
 **Note**: Some working groups adopt a policy whereby substantive discussion of
 technical issues needs to occur on the mailing list.

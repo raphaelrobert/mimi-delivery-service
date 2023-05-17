@@ -283,7 +283,9 @@ to transmit messages to the client during fanout.
 
 ## Join a group from a Welcome message
 
-A request to join a group after having received a Welcome message. The client requests the ratchet tree and the signed GroupInfo from the Delivery Service.
+A request to retrieve information to join a group after having received a
+Welcome message. The client requests the ratchet tree and the signed GroupInfo
+from the Delivery Service.
 
 ```text
 struct {
@@ -295,7 +297,8 @@ struct {
 
 ## Join a group through an External Commit message
 
-A request to join a group after the client requested the ratchet tree and the signed GroupInfo from the Delivery Service.
+A request to retrieve information to join a group, such as the ratchet tree and
+the signed GroupInfo from the Delivery Service.
 
 ```text
 struct {
@@ -307,7 +310,9 @@ struct {
 
 # Add users
 
-A request to add one or more users to a group. The users are added by their respective KeyPackage in an MLS Add Proposal. The client create a Commit message that covers the proposals and the corresponding Welcome message.
+A request to add one or more users to a group. The users are added by their
+respective KeyPackage in an MLS Add Proposal. The client create a Commit message
+that covers the proposals and the corresponding Welcome message.
 
 ```text
 struct {
@@ -319,7 +324,9 @@ struct {
 
 ## Remove user
 
-A request to remove one or more users from a group. The users are removed by their respective leaf node index from the group in an MLS Remove Proposal. The client create a Commit message that covers the proposals .
+A request to remove one or more users from a group. The users are removed by
+their respective leaf node index from the group in an MLS Remove Proposal. The
+client create a Commit message that covers the proposals .
 
 ```text
 struct {
@@ -354,7 +361,9 @@ struct {
 
 ## Update client
 
-A request to update the client's leaf node in the group. Regular updates are important to get good Post-compromise Security (PCS) properties. The client creates a Commit message that contains its new leaf node.
+A request to update the client's leaf node in the group. Regular updates are
+important to get good Post-compromise Security (PCS) properties. The client
+creates a Commit message that contains its new leaf node.
 
 ```text
 struct {
@@ -365,7 +374,9 @@ struct {
 
 ## Resync client
 
-A request to resync the client with the group. This can be used to recover from state loss. The client requests the ratchet tree and the signed GroupInfo from the Delivery Service.
+A request to resync the client with the group. This can be used to recover from
+state loss. The client requests the ratchet tree and the signed GroupInfo from
+the Delivery Service.
 
 ```text
 struct {
@@ -377,7 +388,8 @@ struct {
 
 ## Update client fanout information
 
-A request to update the client's fanout information. The client can use this to update its fanout information, e.g. to change the queue information.
+A request to update the client's fanout information. The client can use this to
+update its fanout information, e.g. to change the queue information.
 
 ```text
 struct {
@@ -389,7 +401,8 @@ struct {
 
 ## Send message
 
-A request to send a message to the group. The client sends an MLS application message to the Delivery Service, which forwards it to the Queueing Service.
+A request to send a message to the group. The client sends an MLS application
+message to the Delivery Service, which forwards it to the Queueing Service.
 
 ```text
 struct {

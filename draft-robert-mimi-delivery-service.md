@@ -114,16 +114,16 @@ other members of a group.
 
 ~~~ aasvg
 
-Client           Delivery Service      Queueing Service
-|                |                     |
-| DSRequest      |                     |
-+--------------->|                     |
-|                |                     |
-| DSResponse     |                     |
-|<---------------+                     |
-|                | Fanout              |
-|                +-------------------->|
-|                |                     |
+Client           Delivery Service (Provider 1)     Delivery Service (Provider 2)
+|                |                                 |
+| DSRequest      |                                 |
++--------------->|                                 |
+|                |                                 |
+| DSResponse     |                                 |
+|<---------------+                                 |
+|                | Fanout                          |
+|                +-------------------------------->|
+|                |                                 |
 ~~~
 {: title="Client/Delivery Service communication with fanout" }
 
@@ -133,14 +133,14 @@ via the sender's own Delivery Service.
 ## High level overview of the operations
 
  * Group creation/deletion
- * Updating client queue information
- * Assistance to join a group from a Welcome message as a new member
- * Assistance to join a group through an External Commit message as a new member
+ * Update client fanout information
+ * Join a group from a Welcome message as a new member
+ * Join a group through an External Commit message as a new member
    or client of an existing member
  * Adding and removing users to/from a group
  * Adding and removing clients to/from a member of the group
  * Client updates (MLS leaf updates)
- * Assistance to resync a client with a group in case of state loss
+ * Resync a client with a group in case of state loss
  * Sending application messages
 
 ## Client removals induced by the Delivery Service
@@ -281,21 +281,136 @@ A request from the client to update the queue information for a group. Clients
 can provision a queue information object to indicate to the Delivery Service how
 to transmit messages to the client during fanout.
 
-## Further operations
+## Join a group from a Welcome message
 
-The following operations follow the same pattern as the create group operation
-but are not fully specified in this version of the document:
+A request to retrieve information to join a group after having received a
+Welcome message. The client requests the ratchet tree and the signed GroupInfo
+from the Delivery Service.
 
-  * Add user to group
-  * Remove user from group
-  * Add client to group
-  * Remove client from group
-  * Update client
-  * Resync client
-  * Update client queue information
-  * Join from a Welcome message
-  * Join from an External Commit message
-  * Send message
+```text
+struct {
+  opaque group_id<V>;
+  SignatureKey sender;
+  // TBD
+} WelcomeInfo;
+```
+
+## Join a group through an External Commit message
+
+A request to retrieve information to join a group, such as the ratchet tree and
+the signed GroupInfo from the Delivery Service.
+
+```text
+struct {
+  opaque group_id<V>;
+  SignatureKey sender;
+  // TBD
+} ExternalCommitInfo;
+```
+
+# Add users
+
+A request to add one or more users to a group. The users are added by their
+respective KeyPackage in an MLS Add Proposal. The client create a Commit message
+that covers the proposals and the corresponding Welcome message.
+
+```text
+struct {
+  MLSMessage commit;
+  MLSMessage welcome;
+// TBD
+} AddUsers;
+```
+
+## Remove user
+
+A request to remove one or more users from a group. The users are removed by
+their respective leaf node index from the group in an MLS Remove Proposal. The
+client create a Commit message that covers the proposals .
+
+```text
+struct {
+  MLSMessage commit;
+// TBD
+} RemoveUsers;
+```
+
+## Add a client to a group
+
+A request to add one or more clients of an existing user to a group.
+
+```text
+
+struct {
+  MLSMessage commit;
+  MLSMessage welcome;
+// TBD
+} AddClients;
+```
+
+## Remove a client from a group
+
+A request to remove one or more clients of an existing user from a group.
+
+```text
+struct {
+  MLSMessage commit;
+// TBD
+} RemoveClients;
+```
+
+## Update client
+
+A request to update the client's leaf node in the group. Regular updates are
+important to get good Post-compromise Security (PCS) properties. The client
+creates a Commit message that contains its new leaf node.
+
+```text
+struct {
+  MLSMessage commit;
+// TBD
+} UpdateClient;
+```
+
+## Resync client
+
+A request to resync the client with the group. This can be used to recover from
+state loss. The client requests the ratchet tree and the signed GroupInfo from
+the Delivery Service.
+
+```text
+struct {
+  opaque group_id<V>;
+  SignatureKey sender;
+  // TBD
+} ResyncClient;
+```
+
+## Update client fanout information
+
+A request to update the client's fanout information. The client can use this to
+update its fanout information, e.g. to change the queue information.
+
+```text
+struct {
+  opaque group_id<V>;
+  SignatureKey sender;
+  // TBD
+} UpdateClientFanoutInfo;
+```
+
+## Send message
+
+A request to send a message to the group. The client sends an MLS application
+message to the Delivery Service, which forwards it to the Queueing Service.
+
+```text
+struct {
+  MLSMessage application_message;
+  // TBD
+} SendMessage;
+```
+
 
 # Delivery Service state
 

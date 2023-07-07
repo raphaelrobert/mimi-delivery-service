@@ -79,9 +79,7 @@ privacy perserving mode, where the individual operations leak as little metadata
 as possible with each operation. The protocol defined in this document allows
 for both modes. For simplicity, the main part of this document specifies only
 the parts relevant for the normal mode, with the remaining parts specified in
-Section XXX (TODO: Link to metadata minimal section).
-
-The main part of this document defines the normal mode with
+{{privacy-preserving-message-delivery}}.
 
 # Terminology
 
@@ -300,9 +298,9 @@ struct {
 A DS supports a variety of operations. For presentational reasons, we only
 define DSRequestType and the corresponding `case` statement in DSRequestBody
 partially here. A more complete definition with all operations relevant for the
-normal DS operating mode can be found in Section XXX (TODO: Link to Operations
-section), while the full definition including the operations relevant for the
-privacy-preserving operating mode and can be found in Section XXX (TODO: Link).
+normal DS operating mode can be found in {{operations}}, while the full
+definition including the operations relevant for the privacy-preserving
+operating mode and can be found in {{privacy-preserving-message-delivery}}.
 
 The `authentication_data` field of a DSRequest depends on the request type and
 contains the data necessary for the DS to authenticate the request.
@@ -329,7 +327,7 @@ struct {
 
 For the normal DS operating mode, Anonymous and ClientSignature are the only
 relevant authentication types. The complete specification of DSAuthType and
-DSAuthBody can be found in Section XXX (TODO: Link to metadata minimal section).
+DSAuthBody can be found in {{privacy-preserving-message-delivery}}.
 
 Before the DS performs the requested operation, it performs an authentication
 operation depending on the DSAuthType.
@@ -362,6 +360,7 @@ After performing the desired operation using the data in DSRequestBody the DS
 responds to the client (or the proxying guest DS) with a DSResponse.
 
 ~~~
+
 struct {
   DSProtocolVersion protocol_version;
   DSResponseBody response_body;
@@ -395,11 +394,24 @@ enum DSResponseBody {
     case VerifyingKey:
       SignaturePublicKey verifying_key;
     case KeyPackages:
-      KeyPackage key_packages<V>;
+      DSKeyPackage key_packages<V>;
     case ConnectionKeyPackages:
-      KeyPackage key_packages<V>;
+      DSKeyPackage key_packages<V>;
   }
 }
+
+enum {
+  MLSKeyPackage,
+  ...
+} DSKeyPackageType
+
+struct {
+  DSKeyPackageType key_package_type;
+  select (DSKeyPackage.key_package_type) {
+    case MLSKeyPackage:
+      KeyPackage key_package;
+  }
+} DSKeyPackage
 
 enum {
   TODO: Operation specific errors.
@@ -461,7 +473,7 @@ structs. For now, splitting it up according to the protocol flow is fine.
 For presentational reasons, we only define DSRecipientType and the corresponding
 `case` statement in DSRecipient partially here. The rest of the definition is
 relevant only for the privacy-preserving operating mode and can be found in
-Section XXX (TODO: Link).
+{{privacy-preserving-message-delivery}}.
 
 The receiving DS verifies the signature using the sending DS' public signature key.
 
@@ -548,8 +560,8 @@ that contains a type prefixed with "PP" to indicate that it is relevant only for
 the privacy preserving mode.
 
 Additional variants specific to the privacy preserving mode, as well as the
-corresponding rest of the `case` statement can be found in Section XXX (TODO:
-add link).
+corresponding rest of the `case` statement can be found in
+{{privacy-preserving-message-delivery}}.
 
 ## MLSMessages and GroupInfos
 
@@ -876,13 +888,13 @@ corresponding to the identifier in the request.
 # DSFanoutRequests and DS-to-DS authentication
 
 After the DS has processed an incoming MLSMessage, it prepars a DSFanoutRequest
-as described in Section XXX (TODO: Link).
+as described in {{framing-and-processing-overview}}.
 
 To authenticate these messages, an additional layer of DS-to-DS authentication
-is required. As defined in Section XXX (TODO: Link), DSFanoutRequests are signed
-using the sending DS' signing key. The receiving DS can obtain the corresponding
-verifying key by sending a DSRequest to the sender indicated in the
-DSFanoutRequest.
+is required. As defined in {{framing-and-processing-overview}}, DSFanoutRequests
+are signed using the sending DS' signing key. The receiving DS can obtain the
+corresponding verifying key by sending a DSRequest to the sender indicated in
+the DSFanoutRequest.
 
 The request for the verifying key MUST be sent via an HTTPS secured channel, or
 otherwise authenticated using a root of trust present on the DS.
@@ -1006,3 +1018,5 @@ it is necessary, because the use of KeyPackages allows the DS to track which
 group is used as the connection group.
 
 TODO: Add section on security considerations.
+TODO: We need to introduce AddPackages so we can add additional data for the
+PrivacyPreserving mode.

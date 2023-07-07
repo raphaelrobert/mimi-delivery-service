@@ -109,6 +109,9 @@ TODO: User/client/identifiers definitions are preliminary.
 
 # Architecture
 
+TODO: This section should probably deleted in favor of a nice diagram in the
+flow section.
+
 The DS consists of three distinct components: A fan-out service (FS), a queueing
 service (QS) and an authentication service (AS).
 
@@ -158,6 +161,33 @@ such as authentication and agreement, it is essentially a client-to-server
 protocol, although messages from guest clients can be proxied through their own
 DS, thus making it a server-to-server protocol in the federated context.
 
+~~~ aasvg
++-------------+ DSRequest    +--------------+
+|             +------------->+              |
+| GuestClient |              | GuestDS      |
+|             |              |              |
+|             +<-------------+              |
++-------------+ DSResponse   +--------------+
+                                |        ^
+                      DSRequest |        | DSResponse
+                                v        |
+                             +--------------+
+                             |              |
+                             | OwningDS     |
+                             |              |
+                             |              |
+                             +--------------+
+                                |        ^
+                DSFanoutRequest |        | DSFanoutResponse
+                                v        |
++-------------+ PropRequest  +--------------+
+|             +------------->+              |
+| GuestClient |              | GuestDS      |
+|             |              |              |
+|             +<-------------+              |
++-------------+ PropResp     +--------------+
+~~~
+{: title="Architecture overview" }
 
 ## Flow
 

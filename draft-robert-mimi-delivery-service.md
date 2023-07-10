@@ -175,7 +175,7 @@ server-to-server authentication.
 
 ## Flow
 
-~~~ aasvg
+~~~aasvg
 +-------------+ DSRequest    +--------------+
 |             +------------->+              |
 | Sending     |              | Owning DS    |
@@ -190,12 +190,11 @@ server-to-server authentication.
                              | Guest DS     |
                              |              |
                              |              |
-                             +--+--------+--+
+                             +--------------+
 ~~~
-
 {: #full-sending-flow title="Architecture overview" }
 
-~~~ aasvg
+~~~aasvg
 +-------------+              +--------------+
 |             +------------->+              |
 | Sending     | (proprietary | Guest DS     |
@@ -215,13 +214,12 @@ server-to-server authentication.
                 DSFanoutRequest |        | DSFanoutResponse
                                 v        |
                              +--+--------+--+
-                             +              |
+                             |              |
                              | Guest DS     |
                              |              |
-                             +              |
+                             |              |
                              +--------------+
 ~~~
-
 {: #proxied-sending-flow title="Alternative example with guest DS as proxy" }
 
 {{full-sending-flow}} and {{proxied-sending-flow}} show example protocol flows,
@@ -229,14 +227,17 @@ where a client sends a request to the owning DS, followed by the owning DS
 fanning out a message to a guest DS. In {{proxied-sending-flow}}, the request
 sent by the client is proxied by the guest DS of that client.
 
+For the remainder of this document, we assume that clients send requests
+directly to the owning DS. Proxying the requests over the client's own DS can
+always be done and does not change the functionality.
+
 Both the message sending and the fanout parts of the protocol are designed in a
 request/response pattern. In the first protocol part, the client sends a
 DSRequest message to the Delivery Service and the Delivery Service responds with
 a DSResponse message. This pattern can easily be used over e.g. RESTful APIs.
 
-~~~ aasvg
-
-Client           Delivery Service
+~~~aasvg
+Client           Owning Delivery Service
 |                |
 | DSRequest      |
 +--------------->|
@@ -252,8 +253,7 @@ to each guest DS. This happens whenever a message needs to be fanned out to all
 other members of a group as a result of an incoming DSRequest. The guest DS in
 turn responds with a DSFanoutResponse.
 
-~~~ aasvg
-
+~~~aasvg
 Client           Owning Delivery Service           Guest Delivery Service
 |                |                                 |
 | DSRequest      |                                 |
@@ -284,7 +284,7 @@ example to manage group membership, join groups, or send messages.
  * Client updates (MLS leaf updates)
  * Sending application messages
  * Download of KeyPackages
- * Enqueueing of a message fanned out from remote DS
+ * Enqueueing of a message fanned out from an owning DS
  * Discovery of users and their clients
  * Download of connection-specific KeyPackages
 

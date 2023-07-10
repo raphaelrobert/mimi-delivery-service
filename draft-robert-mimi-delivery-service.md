@@ -855,7 +855,7 @@ enum {
 TODO: How to mark connection groups? Have the creator include a connection
 extension in the LeafNode?
 
-### Validation
+**Validation:**
 
 The Delivery Service validates the request as follows:
 
@@ -877,7 +877,7 @@ struct {
 } DeleteGroupRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 The Delivery Service validates the request as follows:
 
@@ -907,7 +907,7 @@ struct {
 } AddUsersRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 * The MLSGroupUpdate in the `commit` field must contain a PublicMessage with a
   commit that contains only Add proposals.
@@ -931,7 +931,7 @@ struct {
 } RemoveUsersRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 * The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
   remove proposals.
@@ -953,7 +953,7 @@ struct {
 } AddClientsRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 * The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
   add proposals.
@@ -974,7 +974,7 @@ struct {
 } RemoveClientsRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 * The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
   remove proposals.
@@ -996,7 +996,7 @@ struct {
 } SelfRemoveClientRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 * The MLSMessage must contain a PublicMessage that contains a single
   remove proposal.
@@ -1017,7 +1017,7 @@ struct {
 } UpdateClientRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 * The MLSGroupUpdate must contain a PublicMessage that contains a commit with an
   UpdatePath, but without other proposals.
@@ -1044,7 +1044,7 @@ struct {
 } ExternalJoinRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 * The MLSGroupUpdate must contain a PublicMessage that contains a commit with sender
   type NewMemberCommit.
@@ -1065,7 +1065,7 @@ struct {
 } SendMessageRequest;
 ~~~
 
-### Validation
+**Validation:**
 
 * The MLSMessage must contain a PrivateMessage with ContentType application.
 
@@ -1094,7 +1094,7 @@ struct {
 
 The DS responds with the AddPackages of all clients listed in the request.
 
-### Validation
+**Validation:**
 
 * All client identifiers must refer to clients native to this DS.
 * The DS SHOULD verify that the sender of the request is authorized to retrieve
@@ -1121,7 +1121,7 @@ struct {
 The DS responds with connection AddPackages of all clients of the user
 corresponding to the identifier in the request.
 
-### Validation
+**Validation:**
 
 * All client identifiers must refer to clients native to this DS.
 * All clients referred to by the identifiers must belong to the same user.

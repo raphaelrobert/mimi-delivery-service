@@ -74,24 +74,31 @@ of handshake messages and uses MLS to implement a variety of other features:
    federated environments, as well as the protocol between the Delivery Service
    and the Queueing Service.
 
-The delivery service can operate in one of two modes: A normal mode and a
-privacy perserving mode, where the individual operations leak as little metadata
-as possible with each operation. The protocol defined in this document allows
-for both modes. For simplicity, the main part of this document specifies only
-the parts relevant for the normal mode, with the remaining parts specified in
-{{privacy-preserving-message-delivery}}.
+TODO: Expand prose in the individual subsections of the Operations section.
+TODO: Expand Metadata-reduced section.
+
+The delivery service can operate in one of two modes: "Full Metadata" mode and
+"Reduced Metadata" mode.
+
+In Full Metadata mode, the protocol does not attempt to hide or avoid collecting
+any of the client's metadata. In Reduced Metadata mode, the individual
+operations leak as little metadata as possible to the DS.
+
+The protocol defined in this document allows for both modes through the use of
+enums and optional fields. A DS running in one specific mode has to validate
+that the protocol messages conform with that mode. For simplicity, the main part
+of this document specifies only the parts relevant for the normal mode, with the
+remaining parts specified in {{privacy-preserving-message-delivery}}.
 
 # Terminology
 
-This document uses the terminology defined in the MLS protocol specification
-with the following additions:
+This document uses the terminology defined in {{!I-D.ietf-mls-protocol}} with
+the following additions:
 
-TODO: For now and for simplicity, we require that DS' be reachable directly
-under their domain. Domain delegation is easily possible and will be defined in
-the future.
-* DS Domain: Fully qualified domain name as defined in RFC 2181 under which a
-  given DS can be reached and which is indicated by the identifiers of their
-  users.
+* DS Domain: Fully qualified domain name as defined in RFC 2181 that represents
+  the DS. This does not necessarily have to be the domain under which the DS is
+  reachable on the network. Discovering that domain is the responsibility of the
+  MIMI transport protocol over which the MIMI DS protocol runs.
 TODO: User/client/identifiers definitions are preliminary.
 * User: The operator of one or more clients, identified by its
   user identifier.
@@ -101,100 +108,97 @@ TODO: User/client/identifiers definitions are preliminary.
 * Client identifier: An octet string that uniquely identifies the client. A
   client identifier includes the identifier of its user or otherwise allows the
   association betwen the client and its user.
+* Connection: An agreement between two users, where each user authorizes the
+  other to send them messages and to add them to groups.
+* Connection establishment: The process by which a connection between two users
+  is established. The process is manually initiated by one user and involves the
+  discovery of the other user. The other user must be able to authenticate the
+  initiator and manually authorize the response.
 * Connection group: An MLS group consisting of the clients of two users. For
   each pair of users, there can only be one connection group between them. A
   connection group is created when one user requests a connection with another
   user, followed by that user's consent.
 
+# Architecture and protocol overview
 
-# Architecture
+The MIMI DS protocol allows interoperability between an owning DS which hosts a
+group conversation and one or more guest DSs which are home to one or more of
+the conversation's group members. Underlying each group conversation is an MLS
+group that facilitates end-to-end encryption and authentication between group
+members.
 
-TODO: This section should probably deleted in favor of a nice diagram in the
-flow section.
+The main purpose of the MIMI DS protocol thus has to ensure that guest clients
+can participate in the group. With MLS as the underlying protocol, this means
+that the MIMI DS protocol is primiarliy concerned with the fan-out of MLS
+messages (both from and to guest clients), as well the assistance of guest
+clients in joining MLS groups.
 
-The DS consists of three distinct components: A fan-out service (FS), a queueing
-service (QS) and an authentication service (AS).
+The MIMI DS protocol requires clients to send MLS messages as MLSPublicMessages
+(with the exception of Messages with content type `application` of course). This
+allows the owning DS to track the MLS group state in the same way as a client
+would, enabling it to keep an up-to-date and fully authenticated roster of
+members, as well as provide the full MLS group state to joining group members,
+even for those joining via external commit.
 
-## Fan-out service
+## Client to server and server to server protocol {#c2s}
 
-As suggested by its name, the main purpose of the FS is to provide endpoints
-that allow clients to fan messages out to one of their groups. To this end, the
-FS allows clients to create groups and manage group membership. The FS keeps
-track of group state by processing the MLS (handshake) messages it fans out.
+With MLS messages at its core, the MIMI DS protocol consists of two parts: A
+client-to-server part that allows guest clients to interact with the owning DS
+of one of their groups and a server-to-server protocol that allows an owning DS
+to fan out messages to guest DSs, which can subsequently store and forward
+messages to their respective clients.
 
-Since the FS effectively mirrors the (public) group state of clients by
-processing MLS messages, it can assist clients in joining new groups by
-providing the required information either for Welcome-message or external-commit
-based join operations. This feature is crucial, for example, to allow members to
-recover from state-loss.
+The client-to-server part of the protocol can optionally be proxied via the DS
+of the sending guest client and the transport protocol that the MIMI DS protocol
+runs on can be used to facilitate additional functionality relevant to
+server-to-server communication.
 
-When the FS receives a group message, it fans out the message to the QS of each
-group member.
-
-## Queueing service
-
-The role of the QS is on the one hand to store-and-forward messages for its
-clients. On the other hand, it allows its clients to store KeyPackages for
-retrieval by other clients.
-
-## Authentication service
-
-Before the FS fans out messages or performs group operations, it needs to
-authenticate sending clients and potentially verify the association between a
-client and its user.
-
-The role of the AS is to provide this capability. More concretely, an owning DS
-can contact the AS of a guest DS to obtain the key material required to
-authenticate guest clients and users.
-
-The AS also allows remote clients to discover clients of the local DS and obtain
-KeyPackages for use in connection groups. These KeyPackages differ from regular
-KeyPackages provisioned via the QS in that they are not meant to be used in
-regular groups.
-
-
-# Protocol overview
-
-MLS is fundamentally a client-to-client protocol, where the DS only plays a
-supporting role. As this protocol leverages MLS for a variety of functionalities
-such as authentication and agreement, it is essentially a client-to-server
-protocol, although messages from guest clients can be proxied through their own
-DS, thus making it a server-to-server protocol in the federated context.
+## Flow
 
 ~~~ aasvg
-+-------------+ DSRequest    +--------------+
++-------------+ C2SRequest   +--------------+
 |             +------------->+              |
-| GuestClient |              | GuestDS      |
-|             |              |              |
+| Sending     |              | GuestDS      |
+| Client      |              |              |
 |             +<-------------+              |
-+-------------+ DSResponse   +--------------+
++-------------+ C2SResonse   +--+--------+--+
                                 |        ^
                       DSRequest |        | DSResponse
                                 v        |
-                             +--------------+
+                             +--+--------+--+
                              |              |
                              | OwningDS     |
                              |              |
                              |              |
-                             +--------------+
+                             +--+--------+--+
                                 |        ^
                 DSFanoutRequest |        | DSFanoutResponse
                                 v        |
-+-------------+ PropRequest  +--------------+
++-------------+ C2SRequest   +--+--------+--+
 |             +------------->+              |
-| GuestClient |              | GuestDS      |
-|             |              |              |
+| Receiving   |              | GuestDS      |
+| Client      |              |              |
 |             +<-------------+              |
-+-------------+ PropResp     +--------------+
++-------------+ C2SResponse  +--------------+
+
 ~~~
-{: title="Architecture overview" }
+{: #full-sending-flow title="Architecture overview" }
 
-## Flow
+Figure {{full-sending-flow}} show an example protocol flow, where a client of a
+guest DS sends a request to the owning DS via its own DS. As a result of the
+request, the owning DS fans out a message to another guest DS, where a receiving
+client picks up the message. The C2SRequest and C2SResponse messages exchanged
+between the clients and their respective DS denote proprietary requests that are
+not defined as part of this document and that may differ for sending and
+receiving client.
 
-The protocol is designed in a request/response pattern, whereby the client sends
-a DSRequest message to the Delivery Service and the Delivery Service responds
-with a DSResponse message. This pattern can easily be used over e.g. RESTful
-APIs.
+As outlined in {{c2s}}, guest clients can also interface with the DS directly
+and the protocol does not require any involvement of the guest client's DS.
+
+Both the message sending and the fanout parts of the protocol are designed in a
+request/response pattern. In the first protocol part, the client sends a
+DSRequest message to the Delivery Service and the Delivery Service responds with
+a DSResponse message. This pattern can easily be used over e.g. RESTful APIs.
 
 ~~~ aasvg
 
@@ -209,10 +213,10 @@ Client           Delivery Service
 ~~~
 {: title="Delivery Service Request/Response scheme" }
 
-Depending on the client's request, the Delivery Service might send a message to
-the QS of each guest DS. This happens whenever a message needs to be fanned out
-to all other members of a group. The guest DS can respond, for example, that one
-of the target clients has been deleted.
+For the second part of the protocol the Delivery Service sends a DSFanoutRequest
+to each guest DS. This happens whenever a message needs to be fanned out to all
+other members of a group as a result of an incoming DSRequest. The guest DS in
+turn responds with a DSFanoutResponse.
 
 ~~~ aasvg
 
@@ -232,87 +236,65 @@ Client           Owning Delivery Service           Guest Delivery Service
 ~~~
 {: title="Client/Delivery Service communication with fanout" }
 
-In the federated case, messages to a guest Delivery Service can be proxied
-via the sender's own Delivery Service.
-
 ## Supported operations
 
-The MIMI DS protocol supports a variety of operations that allow clients to
-manage group membership, join groups, or send messages.
-
-TODO: Some of these operations are decidedly client-server and not particularly
-relevant in the federated setting (e.g. user registration, upload of
-KeyPackages, etc.). Do we still want them here?
-
-FS operations:
+The MIMI DS protocol allows guest clients to request a variety of operations for
+example to manage group membership, join groups, or send messages.
 
  * Group creation/deletion
  * Join a group from a Welcome message as a new member
  * Join a group through an External Commit message as a new member
-   or client of an existing member
+   or client of an existing member (e.g. Resync a client after state loss)
  * Adding and removing users to/from a group
  * Adding and removing clients to/from a member of the group
  * Client updates (MLS leaf updates)
- * Resync a client with a group in case of state loss
  * Sending application messages
-
-QS operations:
-
- * Upload of KeyPackages
  * Download of KeyPackages
- * Enqueueing of a message fanned out from a local or a remote FS
- * Retrieval of previously enqueued messages
-
-AS operations:
-
- * User registration/deletion
- * Client addition/removal
- * Discovery of users, their clients and the associated authentication key
-   material
- * Upload of connection-specific KeyPackages
+ * Enqueueing of a message fanned out from remote DS
+ * Discovery of users and their clients
  * Download of connection-specific KeyPackages
 
 ## Client removals induced by the Delivery Service
 
- The Delivery Service can remove clients from a group by issuing remove
- proposals in the following cases:
+Independent of client requests, the Delivery Service itself can remove clients
+from a group by issuing remove proposals in the following cases:
 
- * A user has removed a client from its account
- * A user has been deleted
- * The client is removed from the group because it has been inactive for too
-   long
+* A user has removed a client from its account
+* A user has been deleted
+* The client is removed from the group because it has been inactive for too
+  long
 
 ## Serialization format
 
-This document uses the presentation language and encoding format defined in RFC
-8446 (TODO: Link) with the extensions defined in the MLS protocol specification.
-The bytes strings resulting from serialization in this format are unambiguous
-and require not further canonicalization.
+MLS messages use the presentation language and encoding format defined in
+{{!RFC8446}} with the extensions defined in the MLS protocol specification. The
+MIMI DS protocol uses the same serialization format, as both clients and DS
+already have to support it to process MLS messages.
+
+Octet strings resulting from serialization in this format are unambiguous and
+require no further canonicalization.
 
 
 ## Framing and processing overview
 
-TODO: We're mixing framing and message processing slightly here, which makes
-sense from a presentational standpoint. Later, we go into more detail w.r.t. to
-processing and especially authentication.
+### Client to server requests
 
-All DSRequest messages consist of a MIMI DS specific protocol wrapper called
-DSMessage. DSMessage contains the MIMI DS protocol version, a body with
+All client to server requests consist of a MIMI DS specific protocol wrapper
+called DSRequst. DSRequest contains the MIMI DS protocol version, a body with
 operation-specific data, as well as authentication information.
 
 ~~~
 enum {
-  ds_create_group(0),
-  ds_delete_group(1),
+  ds_request_group_id(0),
+  ds_create_group(1),
+  ds_delete_group(2),
   ...
 } DSRequestType;
 
 struct {
   DSRequestType request_type;
   select (DSRequestBody.request_type) {
-    case fs_create_group:
-      CreateGroupRequest create_group_request;
-    case fs_delete_group:
+    case ds_delete_group:
       DeleteGroupRequest delete_group_request;
     ...
   }
@@ -375,15 +357,15 @@ struct {
 } ClientSignatureTBS
 ~~~
 
-Note that all group operations additionally contain an MLS message the content
+Note that all group operations additionally contain an MLSMessage the content
 of which mirrors the request type, e.g., an AddUsers request wraps an MLS commit
 that in turn contains the Add proposals for the users' clients. In that case,
-the DS uses the GroupID inside the MLS message to determine which group the
-request refers to and verifies the MLS message in the same way an MLS client
+the DS uses the GroupID inside the MLSMessage to determine which group the
+request refers to and verifies the MLSMessage in the same way an MLS client
 would (including the signature).
 
 Depending on the nature of the request, clients can also include data in the AAD
-field of the MLS message, where it can be read and authenticated by both DS and
+field of the MLSMessage, where it can be read and authenticated by both DS and
 all other group members.
 
 After performing the desired operation using the data in DSRequestBody the DS
@@ -402,12 +384,12 @@ enum DSResponseType {
   GroupID,
   WelcomeInfo,
   ExternalCommitInfo
-  VerifyingKey,
+  SignaturePublicKey,
   KeyPackages,
   ConnectionKeyPackages,
 }
 
-enum DSResponseBody {
+struct DSResponseBody {
   DSResponseType response_type;
   select (DSResponseBody.response_type) {
     case Ok:
@@ -421,8 +403,8 @@ enum DSResponseBody {
     case ExternalCommit:
       MLSMessage: group_info;
       optional<Node> ratchet_tree<V>;
-    case VerifyingKey:
-      SignaturePublicKey verifying_key;
+    case SignaturePublicKey:
+      SignaturePublicKey signature_public_key;
     case KeyPackages:
       DSKeyPackage key_packages<V>;
     case ConnectionKeyPackages:
@@ -443,16 +425,18 @@ struct {
   }
 } DSKeyPackage
 
-enum {
+struct {
   TODO: Operation specific errors.
 } DSError
 ~~~
 
-After sending the response, and depending on the operation the DS might fan out
-messages to one or more guest DS'.
+### Server to server requests
 
-To that end, it wraps the MLS message to be fanned out into a DSFanoutRequest.
-In addition to the MLS message, the DSFanoutRequest contains the protocol
+After sending the response, and depending on the operation the DS might fan out
+messages to one or more guest DSs.
+
+To that end, it wraps the MLSMessage to be fanned out into a DSFanoutRequest.
+In addition to the MLSMessage, the DSFanoutRequest contains the protocol
 version, the FQDN of the sending DS and the identifiers of all clients on DS
 that the message is meant to be fanned out to.
 
@@ -483,44 +467,95 @@ struct {
   // Signature over the above fields
   opaque signature<0..255>;
 } DSFanoutRequest
+
 ~~~
 
-The DS receing a DSFanoutRequest can then store-and-forward the contained MLS
+The DS receiving a DSFanoutRequest can then store and forward the contained MLS
 message to the clients indicated in the `recipients` field.
-
-TODO: We need to figure out how we want to react to DSFanoutRequests. In the
-normal operating mode, we don't necessarily have to use these reactions to
-propagate client deletions. Instead, servers could just keep track of which
-remote DS' individual clients have groups on and send dedicated requests to them
-to have the client deleted. We may even want to add them as external senders.
-
-TODO: How to best serialize an FQDN into a byte string? We could probably just
-use UTF-8 for now and restrict characters to ascii as necessary.
-
-TODO: If we really wanted to, we could unify the DSRequest and DSFanoutRequest
-structs. For now, splitting it up according to the protocol flow is fine.
 
 For presentational reasons, we only define DSRecipientType and the corresponding
 `case` statement in DSRecipient partially here. The rest of the definition is
 relevant only for the privacy-preserving operating mode and can be found in
 {{privacy-preserving-message-delivery}}.
 
-The receiving DS verifies the signature using the sending DS' public signature key.
+The receiving DS verifies the signature using the sending DS' public signature
+key, process the message and sends a DSFanoutResponse.
+
+~~~
+enum {
+  Ok,
+  Error,
+} DSFanoutResponseType
+
+struct {
+  TODO: Fanout error types
+} DSFanoutError
+
+struct DSFanoutResponseBody {
+  DSFanoutResponseType response_type;
+  select (DSFanoutResponseBody.response_type) {
+    case Ok:
+      struct {};
+    case Error:
+      DSFanoutError error;
+  }
+}
+
+struct {
+  DSProtocolVersion protocol_version;
+  DSResponseBody response_body;
+} DSFanoutResponse
+~~~
 
 ## Connection establishment flow
 
-
 A user can establish a connection to another user by creating a connection
-group, fetching connection KeyPackages of the target user's clients and inviting
-that user to the connection group. The receiving user can process the Welcome
-and figure out from the group state who the sender is. Additional information
-can either be attached to the group via an extension, or via MLS application
-messages within that group.
+group, fetching connection KeyPackages of the target user's clients from its DS
+and inviting that user to the connection group. The receiving user can process
+the Welcome and figure out from the group state who the sender is. Additional
+information can either be attached to the group via an extension, or via MLS
+application messages within that group.
 
 TODO: This is a sketch for a simple connection establishment flow that allows
 the recipient to identify and authenticate the sender and that establishes an
 initial communication channel between the two users. More functionality can be
 added via additional messages or MLS extensions.
+
+~~~ aasvg
+Initiator                    Initiator DS              Responder DS        Responder
++                            +                         +                   +
+| Request Connection         |                         |                   |
+| KeyPackages                |                         |                   |
++----------------------------------------------------->+                   |
+|                            |                         |                   |
+| Connection KeyPackages     |                         |                   |
++<-----------------------------------------------------+                   |
+|                            |                         |                   |
+| Create Connection group    |                         |                   |
++--------------------------->+                         |                   |
+|                            |                         |                   |
+| Ok                         |                         |                   |
++<---------------------------+                         |                   |
+|                            |                         |                   |
+| Add Responder              |                         |                   |
++--------------------------->+ Fan out Welcome         |                   |
+|                            +------------------------>+ Deliver Welcome   |
+| Ok                         |                         +------------------>+
++<---------------------------+ Ok                      |                   |
+|                            +<------------------------+ Ok                |
+|                            |                         +<------------------+
+|                            |                         |                   |
+|                            | "Hello Initiator"       |                   |
+| Deliver message            +<--------------------------------------------+
++<---------------------------+                         |                   |
+|                            | Ok                      |                   |
+| Ok                         +-------------------------------------------->+
++--------------------------->+                         |                   |
++                            +                         +                   +
+
+~~~
+{: title="Example flow for connection establishment" }
+
 
 # Operations
 
@@ -538,9 +573,9 @@ enum {
   ds_remove_clients(6),
   ds_self_remove_client(7),
   ds_update_client(8),
-  ds_resync_client(9),
+  ds_external_join(9),
   ds_send_message(10),
-  ds_verifying_key(11),
+  ds_signature_public_key(11),
   ds_key_packages(12),
   ds_connection_key_packages(13),
   ...
@@ -567,11 +602,11 @@ struct {
       SelfRemoveClientsRequest self_remove_clients_request;
     case ds_update_client:
       UpdateClientRequest update_client_request;
-    case ds_resync_client:
-      ResyncClientRequest resync_client_request;
+    case ds_external_join:
+      ExternalJoinRequest external_join_request;
     case ds_send_message:
       SendMessageRequest send_message_request;
-    case ds_verifying_key:
+    case ds_signature_public_key:
       struct {};
     case ds_key_packages:
       KeyPackagesRequest key_packages_request;
@@ -593,7 +628,7 @@ Additional variants specific to the privacy preserving mode, as well as the
 corresponding rest of the `case` statement can be found in
 {{privacy-preserving-message-delivery}}.
 
-## MLSMessages and GroupInfos
+## MLS messages and GroupInfos
 
 To verify and deliver messages, authenticate clients as members of a group and
 to assist clients that want to join a group, the DS keeps track of the state of
@@ -603,12 +638,13 @@ GroupInfo for the current group epoch. It does this by processing incoming MLS
 messages in the same way a member of that group would, except of course that the
 DS doesn't hold any private key material.
 
-While MLSMessages are sufficient to keep track of most of the group information,
+While MLS messages are sufficient to keep track of most of the group information,
 it is not quite enough to create a GroupInfo. To allow the DS to provide a valid
 GroupInfo to externally joining clients, it additionally requires clients to
 provide the remaining required information. Concretely, it requires clients to
 upload the Signature and the GroupInfo extensions. Clients need to send this
-information whenever they send an MLSMessage that contains a commit.
+information whenever they send an MLS message (i.e. an MLSMessage struct) that
+contains a commit.
 
 ~~~
 struct {
@@ -618,62 +654,82 @@ struct {
 ~~~
 
 The combination of a commit and a partial group info is called an
-AssistedMLSMessage.
+MLSGroupUpdate.
 
 ~~~
 struct {
   MLSMessage commit;
   PartialGroupInfo partial_group_info;
-} AssistedMLSMessage
+} MLSGroupUpdate
 ~~~
 
-Whenever the DS receives an AssistedMLSMessage, it must verify that the
+Whenever the DS receives an MLSGroupUpdate, it must verify that the
 MLSMessage contains a PublicMessage with a commit and that commit and partial
 group info are valid relative to the existing group state according to the MLS
 specification.
 
+TODO: For now there is no distinct endpoint to obtain authentication material
+that allows the DS to authenticate clients. This would be part of the AS design.
 
-TODO: How do we want to structure the responses? We will have very few differen
-"OK" type responses, but since every response will likeyly have its own error
-messages, we might want to define a request-specific error struct. For now, I'll
-skip defining error responses completely.
-TODO: For now, we only specify the federation-relevant parts, i.e. no queue
-retrieval, etc.
-TODO: For now there is no distinct endpoint to obtain AS-specific authentication
-material, i.e. the authentication material the DS uses to sign the signature
-keys of its clients/users.
-TODO: Right now, we only have two auth methods: No authentication and
-group-specific authentication. We will likely have to define additional auth
-methods.
-TODO: Right now, we always send a full GroupInfo, where a partial GroupInfo
-containing only the extensions and the signature would be enough. We should
-properly define a partial group info, describe what it does and integrate it
-into other struct definitions. In the same section, we should also describe how
-the DS tracks the group state and processes the MLS messages.
-TODO: Besides the resync endpoint, we don't have a specific endpoint for
-external joins. Do we want one?
-TODO: Add section on how "extra" proposals are handled, e.g., self-remove
-proposals, or proposals sent by the DS.
-TODO: Note that the DS with its verifying key needs to be set as a valid
-external sender in all groups.
+In the time between a client being added to a group by a commit and the client
+wanting to join the group, the group state can have progressed by one or more
+epochs. As a consequence, the DS MUST keep track of epochs in which clients are
+added and store the corresponding group states until each client has
+successfully joined.
+
+## Handling of MLS Proposals by reference {#proposals-by-reference}
+
+MLS relies on a proposal-commit logic, where the proposals encode the specific
+action the sending client intends to take and the commit then performs the
+actions of a set of commits.
+
+The advantage of this approach is that the sender of the proposal does not have
+to be the committer, which allows, for example, the DS to propose the removal of
+a client, or a client to propose that it be removed from the group. Note that
+the latter example is the only way that a client can remove itself from a group.
+
+In MLS proposals can be committed "by reference" (if the proposal was sent
+separately before the commit), or "by value" if the proposal is sent as part of
+the commit itself.
+
+In all operations specified in the follow sections, the proposals in the commit
+that is included in the DSRequest MUST match the semantics of the operation and
+all of those proposals MUST be committed by reference. For example, the commit
+in the AddUsersRequest MUST only contain Add proposals.
+
+However, in addition, each commit MAY also include an arbitrary number of valid
+proposal that were sent previously in the same epoch, such as server-initiated
+Remove proposals, or proposals sent as part of a self-remove operation.
+
+Such an additional proposal MUST be committed by reference.
+
+To allow the DS to send proposals, all groups MUST contain an `external_senders`
+extension as defined in Section 12.1.8.1. of {{!I-D.ietf-mls-protocol}} that
+includes the DS' credential and its signature public key.
+
+TODO: Details of the DS credential. A BasicCredential with the FQDN of the DS
+would probably be sufficient.
+
+TODO: Proposals by reference pose a problem in the context of external commits,
+as, even if the external committer had access to all proposals in an epoch, it
+wouldn't be able to verify them, thus potentially leading to an invalid external
+commit. A solution could be introduced either as part of the MIMI DS protocol,
+or as an MLS extension. The latter would be preferable, as other users of MLS
+are likely going to encounter the same problem.
 
 ## Request group id
-
-TODO: This is not a super relevant operation for the federated case. Do we want
-this in here?
 
 Clients can use this operation to request a group id. This group ID can
 subsequently used to create a group on this DS.
 
-After receiving this request, the DS generates a unique group id an responds
-with a DSResponse struct containing the group id.
+After receiving this request, the DS generates a unique group id and responds
+with a DSResponse struct of type GroupID.
 
 ## Create group
 
-TODO: This is not super relevant operation for the federated case. Do we want
-this in here?
-
-A request from the client to create a new group on the Delivery Service.
+A request from the client to create a new group on the Delivery Service. This
+operation can be used both for the creation of regular groups and for the
+creation of connection groups.
 
 The client sends the following CreateGroupRequest to the Delivery Service:
 
@@ -686,33 +742,39 @@ struct {
 } CreateGroupRequest;
 ~~~
 
-The Delivery Service responds with a CreateGroupResponse:
+The Delivery Service internally creates and stores the group based on the
+information in the request and responds with a CreateGroupResponse:
 
 ~~~
 enum {
   invalid_group_id(0),
-  invalid_key_package(1),
+  invalid_leaf_node(1),
   invalid_group_info(2),
 } CreateGroupResponse;
 ~~~
+
+TODO: How to mark connection groups? Have the creator include a connection
+extension in the LeafNode?
 
 ### Validation
 
 The Delivery Service validates the request as follows:
 
  * The group ID is not empty and is not already in use.
- * The LeafNode is valid, according to (I-D.ietf-mls-protocol) 7.3. Leaf Node
+ * The LeafNode is valid, according to {{!I-D.ietf-mls-protocol}} 7.3. Leaf Node
    validation.
- * The GroupInfo is valid, according to (I-D.ietf-mls-protocol) 12.4.3. Adding
+ * The GroupInfo is valid, according to {{!I-D.ietf-mls-protocol}} 12.4.3. Adding
    Members to the Group.
 
 ## Delete group
 
-A request from the client to delete a group from the Delivery Service.
+A request from the client to delete a group from the Delivery Service. This
+operation allows clients to delete a group from the DS. Clients can of course
+keep a copy of the group state locally for archival purposes.
 
 ~~~
 struct {
-  AssistedMLSMessage assisted_message;
+  MLSGroupUpdate group_update;
 } DeleteGroupRequest;
 ~~~
 
@@ -720,17 +782,22 @@ struct {
 
 The Delivery Service validates the request as follows:
 
- * The AssistedMLSMessage must contain a PublicMessage with a commit that contains
+ * The MLSGroupUpdate must contain a PublicMessage with a commit that contains
    remove proposals for every member of the group except the committer.
 
 
 ## Add users to a group
 
-A request from a client to add one or more users to a group.
+A request from a client to add one or more users to a group. For each user, one
+or more of the user's clients are added to the group. The Welcome messages in
+the request are then fanned out to the user's DSs.
+
+To obtain the KeyPackages required to add the users' clients, the sender must
+first fetch the clients' KeyPackages from their DS.
 
 ~~~
 struct {
-  AssistedMLSMessage assisted_message;
+  MLSGroupUpdate group_update;
   MLSMessage welcomes<V>;
   optional<PPAddUsersData> pp_data;
 } AddUsersRequest;
@@ -738,27 +805,30 @@ struct {
 
 ### Validation
 
-TODO: I have left out KeyPackageBatches for now and we don't have user-level
-identities, so there is no way to check if all clients of a given user are
-added.
-* The AssistedMLSMessage in the `commit` field must contain a PublicMessage with a
+* The MLSGroupUpdate in the `commit` field must contain a PublicMessage with a
   commit that contains only Add proposals.
 * Add proposals must not contain clients of existing group members.
+* Add proposals must not contain connection KeyPackages, except if the group is
+  a connection group.
+* If guest users are added as part of the request, there has to be a distinct
+  Welcome message for each guest DS involved.
 
 
 ## Remove users from a group
 
-A request from a client to remove one or more users from a group.
+A request from a client to remove one or more users from a group. The DS will
+still fan out the request to the users. The commit contained in the message will
+allow the users to recognize that they were removed.
 
 ~~~
 struct {
-  AssistedMLSMessage assisted_message;
+  MLSGroupUpdate group_update;
 } RemoveUsersRequest;
 ~~~
 
 ### Validation
 
-* The AssistedMLSMessage must contain a PublicMessage with a commit that contains only
+* The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
   remove proposals.
 * If the commit contains a remove proposal that targets one client of a user in the
   group, other remove proposals in the commit must target the other clients of
@@ -766,11 +836,13 @@ struct {
 
 ## Add clients to a group
 
-A request from a client to add one or more clients of the same user.
+A request from a client to add one or more clients of the same user. This
+operation allows users to add new clients to an existing group. Alternatively,
+new clients can add themselves by joining via external commit.
 
 ~~~
 struct {
-  AssistedMLSMessage assisted_message;
+  MLSGroupUpdate group_update;
   MLSMessage welcomes<V>;
   optional<PPAddClientsData> pp_data;
 } AddClientsRequest;
@@ -778,7 +850,7 @@ struct {
 
 ### Validation
 
-* The AssistedMLSMessage must contain a PublicMessage with a commit that contains only
+* The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
   add proposals.
 * All Add proposals must contain clients of the same user as an existing group
   member.
@@ -786,17 +858,19 @@ struct {
 ## Remove clients from a group
 
 A request from a client to remove one or more other clients of the same user
-from a group.
+from a group. This operation allows users to remove their own clients from a
+group. Note that this operation cannot be used by a client to remove itself from
+the group. For that purpose, the SelfRemoveClientRequest should be used instead.
 
 ~~~
 struct {
-  AssistedMLSMessage assisted_message;
+  MLSGroupUpdate group_update;
 } RemoveClientsRequest;
 ~~~
 
 ### Validation
 
-* The AssistedMLSMessage must contain a PublicMessage with a commit that contains only
+* The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
   remove proposals.
 * All remove proposals must target clients of the same user as the sending
   client.
@@ -804,15 +878,16 @@ struct {
 ## Self remove a client from a group
 
 A request from a client to remove itself from the group. If it's the last client
-of a user, this effectively removes the user from the group.
+of a user, this effectively removes the user from the group. Note that this
+request only contains a proposal, so the client is not effectively removed from
+the group until another group member commits that proposal. See
+{{proposals-by-reference}} for more details.
 
 ~~~
 struct {
   MLSMessage proposal;
 } SelfRemoveClientRequest;
 ~~~
-
-TODO: Add discussion regarding the difficulty of self-removals in MLS.
 
 ### Validation
 
@@ -822,40 +897,58 @@ TODO: Add discussion regarding the difficulty of self-removals in MLS.
 
 ## Update a client in a group
 
-A request from a client to update its own leaf in an MLS group.
+A request from a client to update its own leaf in an MLS group. This operation
+can be used to update any information in the sender's leaf node. For example,
+the sender could use this operation to update its key material to achieve
+post-compromise security, update its Capabilities extension, or its leaf
+credential.
 
 ~~~
 struct {
-  AssistedMLSMessage assisted_message;
+  MLSGroupUpdate group_update;
   optional<PPUpdateClientData> pp_data;
 } UpdateClientRequest;
 ~~~
 
 ### Validation
 
-* The AssistedMLSMessage must contain a PublicMessage that contains a commit with an
+* The MLSGroupUpdate must contain a PublicMessage that contains a commit with an
   UpdatePath, but without other proposals.
+* If the leaf credential is changed by the update, the DS must validate the new
+  credential.
 
-## Resync a client in a group
+TODO: The discussion around identity and credentials should yield a method to
+judge if a new credential is a valid update to an existing one.
 
-A request from a client to recover from state loss by re-adding themselves to a
-group.
+## Join the group using an external commit
+
+A request from a client to join a group using an external commit, i.e. without
+the help of an existing group member. This operation can be used, for example,
+by new clients of a user that already has clients in the group, or by existing
+group members that have to recover from state loss.
+
+To retrieve the information necessary to create the external commit, the joiner
+has to fetch the external commit information from the DS.
 
 ~~~
 struct {
-  AssistedMLSMessage assisted_message;
-  optional<PPResyncClientData> pp_data;
-} ResyncClientRequest;
+  MLSGroupUpdate group_update;
+  optional<PPExternalJoinData> pp_data;
+} ExternalJoinRequest;
 ~~~
 
 ### Validation
 
-* The AssistedMLSMessage must contain a PublicMessage that contains a commit with sender
+* The MLSGroupUpdate must contain a PublicMessage that contains a commit with sender
   type NewMemberCommit and with a remove proposal.
 
 ## Send an application message to a group
 
-A request from a client to fan out an application message to a group.
+A request from a client to fan out an application message to a group. This
+operation is meant to send arbitrary data to the rest of the group. Since the
+application message is a PrivateMessage, the DS can not verify its content or
+authenticate its sender (even though it does authenticate the sender of the
+surrounding DSRequest).
 
 ~~~
 struct {
@@ -867,21 +960,22 @@ struct {
 
 * The MLSMessage must contain a PrivateMessage with ContentType application.
 
-## Fetch the DS' verifying key
+## Fetch the DS' signature public key
 
-TODO: Terminology: signature public key or verifying key? We use
-SignaturePublicKey in the MLS spec, but I much prefer verifying key at this
-point. Once we decide, we should stick with the same throughout this document.
+A request from a remote DS to retrieve the signature public key of this DS. The
+signature public key can be used by other DSs to verify DSFanoutRequests sent by
+the DS. While the DS also uses its signature private key to sign proposals (see
+{{proposals-by-reference}}), clients should use the signature key included in
+the group's `external_senders` extension to validate those.
 
-A request from a remote DS to retrieve the verifying key of this DS.
-
-The DS responds with a DSResponse of type VerifyingKey that contains the
-verifying key of this DS.
+The DS responds with a DSResponse of type SignaturePublicKey that contains the
+signature public key of this DS.
 
 ## Fetch KeyPackages of one or more clients
 
 A request from a client to retrieve the KeyPackage(s) of one or more clients of
-this DS.
+this DS. KeyPackages are required to add other clients (and thus other users) to
+a group.
 
 ~~~
 struct {
@@ -893,13 +987,19 @@ The DS responds with the KeyPackages of all clients listed in the request.
 
 ### Validation
 
-TODO: Should all clients have to belong to the same user?
 * All client identifiers must refer to clients native to this DS.
+* The DS SHOULD verify that the sender of the request is authorized to retrieve
+  the DSKeyPackages of the clients in question. For example, it could check if
+  the user of the sending client has a connection with the user of the target
+  client(s).
 
 ## Fetch connection KeyPackages of one or more clients
 
 A request from a client to retrieve the KeyPackage(s) of all clients of a user
-of this DS.
+of this DS. KeyPackages obtained via this operation can only be used to add
+clients to a connection group.
+
+Connection KeyPackages are available separately from regular KeyPackages, as
 
 ~~~
 struct {
@@ -922,26 +1022,25 @@ as described in {{framing-and-processing-overview}}.
 
 To authenticate these messages, an additional layer of DS-to-DS authentication
 is required. As defined in {{framing-and-processing-overview}}, DSFanoutRequests
-are signed using the sending DS' signing key. The receiving DS can obtain the
-corresponding verifying key by sending a DSRequest to the sender indicated in
-the DSFanoutRequest.
+are signed using signing key of the sending DS. The receiving DS can obtain the
+corresponding signature public key by sending a DSRequest to the sender
+indicated in the DSFanoutRequest.
 
-The request for the verifying key MUST be sent via an HTTPS secured channel, or
+The request for the signature public key MUST be sent via an HTTPS secured channel, or
 otherwise authenticated using a root of trust present on the DS.
-TODO: I'm being a bit vague here since we don't have a fixed transport protocol
-yet.
 
-The receiving DS may cache the verifying key for X amount of time.
-
-TODO: Details on key management. We can probably get away with using very small
-lifetimes for these keys, as they can be re-fetched cheaply and essentially at
-any time.
+TODO: If the transport provides server-to-server authentication this section and
+the signature on the DSFanoutRequest can be removed.
+TODO: Details on key management, caching etc. We can probably get away with
+using very small lifetimes for these keys, as they can be re-fetched cheaply and
+essentially at any time.
 
 # Role-based access control in groups
 
-TODO: This is section sketches a possible MLS extension to handle access control
-in groups that is enforcible and verifiable by both clients and DS. It is just
-an example and details can be changed later.
+TODO: Access control is beyond the charter. However, to show how easily
+implementable it is with MLS, this is section sketches a possible MLS extension
+to handle access control in groups that is enforcible and verifiable by both
+clients and DS. It is just an example and details can be changed later.
 
 As group operations are handled by MLS PublicMessages, the DS can enforce access
 control policies on groups. The privileges of clients in a group are determined
@@ -962,36 +1061,32 @@ perform the following operations in the context of this group.
 
 * AddUsers, RemoveUsers, DeleteGroup, SetRole
 
-TODO: It's a bit weird to specify this operation here as opposed to the
-Operations section, since it also needs its own entry in the RequestType enum.
-We'll move it there once we decide that this extension makes sense for now.
-Also: Do all groups have to have this RBACExtension? It's a little overhead, but
-if groups want, they can just set all group members to Admin.
-
 The SetRole operation is an additional operation available to groups that have
 an RBACExtension.
 
 ~~~
 struct {
-  AssistedMLSMessage assisted_message;
+  MLSGroupUpdate group_update;
 } SetRoleRequest
 ~~~
 
-The assisted_message needs to contain a commit which commits to a single
+The `group_update` needs to contain a commit which commits to a single
 RBACProposal.
 
 ~~~
 struct {
-  uint32 changed_members;
+  uint32 promoted_members;
+  uint32 demoted_members;
 } SetRole
 ~~~
 
-The DS (and all clients) process this proposal by toggling the role of the group
-members with the leaf indices listed in the `changed_members` field and change
-the `admins` field of the group's RBACExtension accordingly. For example, if the
-leaf index admin is listed in the `changed_members` field of the proposal, it is
-demoted to Member and removed from the `admins` field. Similarly, if a Member is
-listed, it is promoted to Admin and added to the `admins` field.
+The DS (and all clients) process this proposal by changing the role of the group
+members with the leaf indices listed in the `promoted_members` and
+`demoted_members` fields and change the `admins` field of the group's
+RBACExtension accordingly. For example, if the leaf index admin is listed in the
+`changed_members` field of the proposal, it is demoted to Member and removed
+from the `admins` field. Similarly, if a Member is listed, it is promoted to
+Admin and added to the `admins` field.
 
 # Rate-limiting and spam prevention
 
@@ -1016,13 +1111,13 @@ users of that DS.
 # Abusive and illegal content
 
 As all application messages are encrypted, the DS has no way of analyzing their
-content for illegal or abusive content. However, it may make use of a message
-franking scheme to allow its users to report such content.
+content for illegal or abusive content. It may make use of a message franking
+scheme to allow its users to report such content, although this is beyond the
+scope of this document.
 
 Additionally, in the same way as a DS might allow its users to block certain
-messages from specific users based on spam, it may do the same based on abusive
-or illegal content.
-
+messages from specific users in the context of spam prevention, it may do the
+same based on abusive or illegal content.
 
 # Privacy preserving message delivery
 
@@ -1047,6 +1142,22 @@ initiator from immediately sending messages after creating the connection group,
 it is necessary, because the use of KeyPackages allows the DS to track which
 group is used as the connection group.
 
-TODO: Add section on security considerations.
+# Security considerations
+
+TODO: There is currently no consensus in the MIMI w.r.t. the security goals we
+want to reach.
+
+The underlying MLS protocol provides end-to-end encryption and authentication
+for all MLSMessages, as well as group state agreement.
+
+## Transport Security
+
+Transport of DSFanoutRequests, as well as their responses MUST use a recipient
+authenticated transport. This is to ensure that these messages are mutually
+authenticated.
+
+To protect the metadata in all request-response flows, requests and responses
+SHOULD be secured using an encrypted transport channel.
+
 TODO: We need to introduce AddPackages so we can add additional data for the
 PrivacyPreserving mode.

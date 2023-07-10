@@ -126,31 +126,34 @@ the conversation's group members. Underlying each group conversation is an MLS
 group that facilitates end-to-end encryption and authentication between group
 members.
 
-The main purpose of the MIMI DS protocol thus has to ensure that guest clients
+The main purpose of the MIMI DS protocol thus is to ensure that guest clients
 can participate in the group. With MLS as the underlying protocol, this means
 that the MIMI DS protocol is primiarliy concerned with the fan-out of MLS
 messages (both from and to guest clients), as well the assistance of guest
 clients in joining MLS groups.
 
-The MIMI DS protocol requires clients to send MLS messages as MLSPublicMessages
-(with the exception of Messages with content type `application` of course). This
-allows the owning DS to track the MLS group state in the same way as a client
-would, enabling it to keep an up-to-date and fully authenticated roster of
-members, as well as provide the full MLS group state to joining group members,
-even for those joining via external commit.
+The MIMI DS protocol requires clients to send MLS messages as PublicMessages
+(with the exception of messages with content type `application`). This allows
+the owning DS to track the MLS group state in the same way as a client would,
+enabling it to keep an up-to-date and fully authenticated list of members, as
+well as provide the full MLS group state to joining group members, even for
+those joining via external commit. In addition, the DS can verify messages and
+enforce access control policies on group operations.
 
 ## Client to server and server to server protocol {#c2s}
 
-With MLS messages at its core, the MIMI DS protocol consists of two parts: A
-client-to-server part that allows guest clients to interact with the owning DS
-of one of their groups and a server-to-server protocol that allows an owning DS
-to fan out messages to guest DSs, which can subsequently store and forward
-messages to their respective clients.
+MLS being a protocol for end-to-end encryption, a subset of MIMI DS protocol
+messages have to originate from the clients rather than the interoperating
+delivery services.
 
-The client-to-server part of the protocol can optionally be proxied via the DS
-of the sending guest client and the transport protocol that the MIMI DS protocol
-runs on can be used to facilitate additional functionality relevant to
-server-to-server communication.
+The MIMI DS protocol consists of two parts: A client-to-server part that allows
+guest clients to interact with the owning DS of one of their groups and a
+server-to-server protocol that allows an owning DS to fan out messages to guest
+DSs, which can subsequently store and forward messages to their respective
+clients.
+
+Note that the client-to-server part of the protocol can optionally be proxied
+via the guest DS of the sending client.
 
 ## Transport for the MIMI DS protocol
 
@@ -165,47 +168,66 @@ provided, for example, by the HTTPS protocol to the transport layer.
 TODO: If the transport layer provides mutual authentication, at least the
 server-to-server part of the MIMI DS protocol can be changed accordingly.
 
+In the event that a guest DS proxies the client-server part of the MIMI DS
+protocol, the transport protocol can be used to facilitate additional
+functionality relevant to server-to-server communication, such as e.g.
+server-to-server authentication.
+
 ## Flow
 
 ~~~ aasvg
-+-------------+ C2SRequest   +--------------+
++-------------+ DSRequest    +--------------+
 |             +------------->+              |
-| Sending     |              | GuestDS      |
+| Sending     |              | Owning DS    |
 | Client      |              |              |
 |             +<-------------+              |
-+-------------+ C2SResonse   +--+--------+--+
++-------------+ DSResponse   +--+--------+--+
+                                |        ^
+                DSFanoutRequest |        | DSFanoutResponse
+                                v        |
+                             +--+--------+--+
+                             |              |
+                             | Guest DS     |
+                             |              |
+                             |              |
+                             +--+--------+--+
+~~~
+
+{: #full-sending-flow title="Architecture overview" }
+
+~~~ aasvg
++-------------+              +--------------+
+|             +------------->+              |
+| Sending     | (proprietary | Guest DS     |
+| Client      |   protocol)  | (proxy)      |
+|             +<-------------+              |
++-------------+              +--+--------+--+
                                 |        ^
                       DSRequest |        | DSResponse
                                 v        |
                              +--+--------+--+
                              |              |
-                             | OwningDS     |
+                             | Owning DS    |
                              |              |
                              |              |
                              +--+--------+--+
                                 |        ^
                 DSFanoutRequest |        | DSFanoutResponse
                                 v        |
-+-------------+ C2SRequest   +--+--------+--+
-|             +------------->+              |
-| Receiving   |              | GuestDS      |
-| Client      |              |              |
-|             +<-------------+              |
-+-------------+ C2SResponse  +--------------+
-
+                             +--+--------+--+
+                             +              |
+                             | Guest DS     |
+                             |              |
+                             +              |
+                             +--------------+
 ~~~
-{: #full-sending-flow title="Architecture overview" }
 
-Figure {{full-sending-flow}} show an example protocol flow, where a client of a
-guest DS sends a request to the owning DS via its own DS. As a result of the
-request, the owning DS fans out a message to another guest DS, where a receiving
-client picks up the message. The C2SRequest and C2SResponse messages exchanged
-between the clients and their respective DS denote proprietary requests that are
-not defined as part of this document and that may differ for sending and
-receiving client.
+{: #proxied-sending-flow title="Alternative example with guest DS as proxy" }
 
-As outlined in {{c2s}}, guest clients can also interface with the DS directly
-and the protocol does not require any involvement of the guest client's DS.
+{{full-sending-flow}} and {{proxied-sending-flow}} show example protocol flows,
+where a client sends a request to the owning DS, followed by the owning DS
+fanning out a message to a guest DS. In {{proxied-sending-flow}}, the request
+sent by the client is proxied by the guest DS of that client.
 
 Both the message sending and the fanout parts of the protocol are designed in a
 request/response pattern. In the first protocol part, the client sends a

@@ -220,7 +220,7 @@ server-to-server authentication.
                              |              |
                              +--------------+
 ~~~
-{: #proxied-sending-flow title="Alternative example with guest DS as proxy" }
+{: #proxied-sending-flow title="Alternative with a guest DS as proxy" }
 
 {{full-sending-flow}} and {{proxied-sending-flow}} show example protocol flows,
 where a client sends a request to the owning DS, followed by the owning DS
@@ -363,13 +363,13 @@ TODO: Such an extension would have to be specified in the context of the MLS WG.
 
 ## Group lifecycle
 
-MLS groups are parameterized by an MLS version number, as well as a ciphersuite.
-Just as the GroupID, both version and ciphersuite are fixed and cannot be
-changed throughout the lifetime of a group.
+Upon creation MLS groups are parameterized by a GroupID, an MLS version number,
+as well as a ciphersuite. All three parameters are fixed and cannot be changed
+throughout the lifetime of a group.
 
-Similarly, Groups capable of interoperability with the MIMI DS protocol MUST use
-a GroupContext extension that indicates the MIMI DS protocol version it was
-created with. This extension MUST NOT be changed throughout the lifetime of the
+Groups capable of interoperability with the MIMI DS protocol MUST use a
+GroupContext extension that indicates the MIMI DS protocol version with which it
+was created. This extension MUST NOT be changed throughout the lifetime of the
 group.
 
 While all these parameters cannot be changed throughout a group's lifetime, the
@@ -379,6 +379,9 @@ group can be re-initialized as described in Section 11.2. of
 The MIMI DS protocol supports re-initializations of groups using the
 corresponding ReInitialization operation under the condition that all MLS
 parameters are compatible with the MIMI DS protocol version.
+
+If a group is no longer used, it can be deleted either by a client or the DS
+itself.
 
 TODO: Each MIMI DS protocol version should probably fix a set of ciphersuites,
 MLS protocol versions and maybe even extensions it supports. New ones can be
@@ -634,8 +637,8 @@ the recipient to identify and authenticate the sender and that establishes an
 initial communication channel between the two users. More functionality can be
 added via additional messages or MLS extensions.
 
-~~~ aasvg
-Initiator                    Initiator DS              Responder DS        Responder
+~~~aasvg
+Alice                        Owning DS                 Guest DS            Bob
 +                            +                         +                   +
 | Request Connection         |                         |                   |
 | AddPackages                |                         |                   |
@@ -647,102 +650,18 @@ Initiator                    Initiator DS              Responder DS        Respo
 | Create Connection group    |                         |                   |
 +--------------------------->+                         |                   |
 |                            |                         |                   |
-| Ok                         |                         |                   |
-+<---------------------------+                         |                   |
+| Add Responder              |                         | Deliver Welcome   |
++--------------------------->+ Fan out Welcome         | (proprietary      |
+|                            +------------------------>+  protocol)        |
+|                            |                         +------------------>+
 |                            |                         |                   |
-| Add Responder              |                         |                   |
-+--------------------------->+ Fan out Welcome         |                   |
-|                            +------------------------>+ Deliver Welcome   |
-| Ok                         |                         +------------------>+
-+<---------------------------+ Ok                      |                   |
-|                            +<------------------------+ Ok                |
-|                            |                         +<------------------+
-|                            |                         |                   |
-|                            | "Hello Initiator"       |                   |
-| Deliver message            +<--------------------------------------------+
-+<---------------------------+                         |                   |
-|                            | Ok                      |                   |
-| Ok                         +-------------------------------------------->+
-+--------------------------->+                         |                   |
 +                            +                         +                   +
 
 ~~~
 {: title="Example flow for connection establishment" }
 
 
-# Operations
-
-The DS supports a number of operations, each of which is represented by a
-variant of the DSRequestType enum and has its own request body.
-
-~~~
-enum {
-  ds_request_group_id(0),
-  ds_create_group(1),
-  ds_delete_group(2),
-  ds_add_users(3),
-  ds_remove_users(4),
-  ds_add_clients(5),
-  ds_remove_clients(6),
-  ds_self_remove_client(7),
-  ds_update_client(8),
-  ds_external_join(9),
-  ds_send_message(10),
-  ds_signature_public_key(11),
-  ds_add_packages(12),
-  ds_connection_add_packages(13),
-  ...
-} DSRequestType;
-
-struct {
-  DSRequestType request_type;
-  select (DSRequestBody.request_type) {
-    case ds_request_group_id:
-      struct {};
-    case ds_create_group:
-      CreateGroupRequest create_group_request;
-    case ds_delete_group:
-      DeleteGroupRequest delete_group_request;
-    case ds_add_users:
-      AddUsersRequest add_users_request;
-    case ds_remove_users:
-      RemoveUsersRequest remove_users_request;
-    case ds_add_clients:
-      AddClientsRequest add_clients_request;
-    case ds_remove_clients:
-      RemoveClientsRequest remove_clients_request;
-    case ds_self_remove_clients:
-      SelfRemoveClientsRequest self_remove_clients_request;
-    case ds_update_client:
-      UpdateClientRequest update_client_request;
-    case ds_external_join:
-      ExternalJoinRequest external_join_request;
-    case ds_send_message:
-      SendMessageRequest send_message_request;
-    case ds_signature_public_key:
-      struct {};
-    case ds_add_packages:
-      AddPackagesRequest add_packages_request;
-    case ds_connection_add_packages:
-      ConnectionAddPackagesRequest connection_add_packages_request;
-    ...
-  }
-  optional<opaque> group_state_ear_key<0..255>;
-} DSRequestBody;
-~~~
-
-A number of these operations require either slightly different or additional
-parameters in the privacy preserving operational mode. If the parameter is
-different, it will be defined as an enum with one variant for each mode. If
-additional parameters are required, a field with an optional type is included
-that contains a type prefixed with "RM" to indicate that it is relevant only for
-the privacy preserving mode.
-
-Additional variants specific to the privacy preserving mode, as well as the
-corresponding rest of the `case` statement can be found in
-{{reduced-metadata-operating-mode}}.
-
-## DS supported joins
+# DS assisted joining
 
 To verify and deliver messages, authenticate clients as members of a group and
 to assist clients that want to join a group, the DS keeps track of the state of
@@ -798,7 +717,7 @@ epochs. As a consequence, the DS MUST keep track of epochs in which clients are
 added and store the corresponding group states until each client has
 successfully joined.
 
-## Handling of MLS Proposals by reference {#proposals-by-reference}
+# Handling of standalone MLS Proposals {#proposals-by-reference}
 
 MLS relies on a proposal-commit logic, where the proposals encode the specific
 action the sending client intends to take and the commit then performs the
@@ -837,6 +756,81 @@ wouldn't be able to verify them, thus potentially leading to an invalid external
 commit. A solution could be introduced either as part of the MIMI DS protocol,
 or as an MLS extension. The latter would be preferable, as other users of MLS
 are likely going to encounter the same problem.
+
+# Operations
+
+The DS supports a number of operations, each of which is represented by a
+variant of the DSRequestType enum and has its own request body.
+
+~~~
+enum {
+  ds_request_group_id(0),
+  ds_create_group(1),
+  ds_delete_group(2),
+  ds_add_users(3),
+  ds_remove_users(4),
+  ds_add_clients(5),
+  ds_remove_clients(6),
+  ds_self_remove_client(7),
+  ds_update_client(8),
+  ds_external_join(9),
+  ds_send_message(10),
+  ds_signature_public_key(11),
+  ds_add_packages(12),
+  ds_connection_add_packages(13),
+  ds_re_initialize_group(14),
+  ...
+} DSRequestType;
+
+struct {
+  DSRequestType request_type;
+  select (DSRequestBody.request_type) {
+    case ds_request_group_id:
+      struct {};
+    case ds_create_group:
+      CreateGroupRequest create_group_request;
+    case ds_delete_group:
+      DeleteGroupRequest delete_group_request;
+    case ds_add_users:
+      AddUsersRequest add_users_request;
+    case ds_remove_users:
+      RemoveUsersRequest remove_users_request;
+    case ds_add_clients:
+      AddClientsRequest add_clients_request;
+    case ds_remove_clients:
+      RemoveClientsRequest remove_clients_request;
+    case ds_self_remove_clients:
+      SelfRemoveClientsRequest self_remove_clients_request;
+    case ds_update_client:
+      UpdateClientRequest update_client_request;
+    case ds_external_join:
+      ExternalJoinRequest external_join_request;
+    case ds_send_message:
+      SendMessageRequest send_message_request;
+    case ds_signature_public_key:
+      struct {};
+    case ds_add_packages:
+      AddPackagesRequest add_packages_request;
+    case ds_connection_add_packages:
+      ConnectionAddPackagesRequest connection_add_packages_request;
+    case ds_re_initialize_group:
+      ReInitializeGroupRequest re_initialize_group_request;
+    ...
+  }
+  optional<RMGroupStateEARKey> rn_data<0..255>;
+} DSRequestBody;
+~~~
+
+A number of these operations require either slightly different or additional
+parameters in the privacy preserving operational mode. If the parameter is
+different, it will be defined as an enum with one variant for each mode. If
+additional parameters are required, a field with an optional type is included
+that contains a type prefixed with "RM" to indicate that it is relevant only for
+the privacy preserving mode.
+
+Additional variants specific to the privacy preserving mode, as well as the
+corresponding rest of the `case` statement can be found in
+{{reduced-metadata-operating-mode}}.
 
 ## Request group id
 
@@ -1148,6 +1142,25 @@ corresponding to the identifier in the request.
 * All client identifiers must refer to clients native to this DS.
 * All clients referred to by the identifiers must belong to the same user.
 
+## ReInitialize a group
+
+A request from a client to re-initialize a group with different parameters as
+outlined in {{group-lifecycle}}.
+
+~~~
+struct {
+  MLSGroupUpdate commit;
+} ReInitializeGroupRequest;
+~~~
+
+**Validation:**
+
+* The MLSGroupUpdate must contain a PublicMessage that contains a commit with a
+  re-init proposal.
+* The GroupID in the re-init proposal must point to another group owned by the
+  DS, which has a MIMI DS protocol version that is greater or equal than this
+  group.
+
 # DSFanoutRequests and DS-to-DS authentication
 
 After the DS has processed an incoming MLSMessage, it prepars a DSFanoutRequest
@@ -1280,7 +1293,7 @@ their identity when fetching KeyPackages for the other user.
 struct {
   opaque connection_token<0..255>;
   opaque welcome_data_encryption_key<0..255>;
-  opaque DPK<0..255>;
+  opaque de_pseudonymization_key<0..255>;
 } ConnectionKeyMaterial
 ~~~
 
@@ -1303,14 +1316,14 @@ each receiving user.
 
 ~~~
 struct {
-  opaque DPK<0..255>;
+  opaque de_pseudonymization_key<0..255>;
   opaque credential_encryption_key<0..255>;
   opaque group_state_encryption_key<0..255>;
 } GroupLevelKeys
 
 struct {
   opaque encrypted_group_level_keys;
-} RNWelcomeData
+} RMWelcomeData
 ~~~
 
 TODO: Lifecycle of these keys. Rotation of such key material is tricky, as any
@@ -1523,6 +1536,12 @@ To additionally protect persisted metadata on the DS, the DS MUST encrypt the
 group state before it stores it in persistent state. The key used for encryption
 and decryption is another group-level key that clients send to the DS with
 DSRequest.
+
+~~~
+struct {
+  opaque group_state_ear_key<0..255>;
+} RMGroupStateEARKey
+~~~
 
 Whenever a client sends a DSRequest that is concerned with a specific group, it
 includes the group state encryption key in the DSRequestBody. The DS then

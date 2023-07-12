@@ -61,7 +61,7 @@ of handshake messages and uses MLS to implement a variety of other features:
  * Scalability: The protocol makes no assumption about whether the Delivery Service
    runs as a single instance or as a cluster of instances.
  * Network fluid: While the Delivery Service would typically run as a
-   server-side component, the only requirement is that it is accesible by all
+   server-side component, the only requirement is that it is accessible by all
    clients.
  * Transport agnostic: Messages between clients and the Delivery Service can be
    sent via an arbitrary transport protocol. Additionally, in the federated
@@ -106,7 +106,7 @@ TODO: User/client/identifiers definitions are preliminary.
 * Client: An MLS client with a unique client identifier.
 * Client identifier: An octet string that uniquely identifies the client. A
   client identifier includes the identifier of its user or otherwise allows the
-  association betwen the client and its user.
+  association between the client and its user.
 * Connection: An agreement between two users, where each user authorizes the
   other to send them messages and to add them to groups.
 * Connection establishment: The process by which a connection between two users
@@ -128,7 +128,7 @@ members.
 
 The main purpose of the MIMI DS protocol thus is to ensure that guest clients
 can participate in the group. With MLS as the underlying protocol, this means
-that the MIMI DS protocol is primiarliy concerned with the fan-out of MLS
+that the MIMI DS protocol is primarily concerned with the fan-out of MLS
 messages (both from and to guest clients), as well the assistance of guest
 clients in joining MLS groups.
 
@@ -261,10 +261,10 @@ Client           Owning Delivery Service           Guest Delivery Service
 |                |                                 |
 | DSResponse     |                                 |
 |<---------------+                                 |
-|                | DsFanoutRequest                 |
+|                | DSFanoutRequest                 |
 |                +-------------------------------->|
 |                |                                 |
-|                | DsFanoutResponse                |
+|                | DSFanoutResponse                |
 |                |<--------------------------------+
 |                |                                 |
 ~~~
@@ -1163,7 +1163,7 @@ struct {
 
 # DSFanoutRequests and DS-to-DS authentication
 
-After the DS has processed an incoming MLSMessage, it prepars a DSFanoutRequest
+After the DS has processed an incoming MLSMessage, it prepares a DSFanoutRequest
 as described in {{framing-and-processing-overview}}.
 
 To authenticate these messages, an additional layer of DS-to-DS authentication
@@ -1507,7 +1507,7 @@ struct {
 } DSFanoutRecipient;
 ~~~
 
-To allow for the delivery of messages immmediately after clients were added to a
+To allow for the delivery of messages immediately after clients were added to a
 group, clients need to include a FanoutPseudonym extension in their KeyPackages.
 
 Additionally, clients can update their FanoutPseudonym whenever they perform an

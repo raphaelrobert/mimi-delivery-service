@@ -726,7 +726,8 @@ actions of a set of commits.
 The advantage of this approach is that the sender of the proposal does not have
 to be the committer, which allows, for example, the DS to propose the removal of
 a client, or a client to propose that it be removed from the group. Note that
-the latter example is the only way that a client can remove itself from a group.
+the latter example is the only way that a client can remove itself (i.e. leave)
+from a group.
 
 In MLS proposals can be committed "by reference" (if the proposal was sent
 separately before the commit), or "by value" if the proposal is sent as part of
@@ -734,14 +735,14 @@ the commit itself.
 
 In all operations specified in the follow sections, the proposals in the commit
 that is included in the DSRequest MUST match the semantics of the operation and
-all of those proposals MUST be committed by reference. For example, the commit
+all of those proposals MUST be committed by value. For example, the commit
 in the AddUsersRequest MUST only contain Add proposals.
 
 However, in addition, each commit MAY also include an arbitrary number of valid
-proposal that were sent previously in the same epoch, such as server-initiated
+proposals that were sent previously in the same epoch, such as server-initiated
 Remove proposals, or proposals sent as part of a self-remove operation.
 
-Such an additional proposal MUST be committed by reference.
+Such additional proposals MUST be committed by reference.
 
 To allow the DS to send proposals, all groups MUST contain an `external_senders`
 extension as defined in Section 12.1.8.1. of {{!I-D.ietf-mls-protocol}} that
@@ -875,11 +876,11 @@ extension in the LeafNode?
 
 The Delivery Service validates the request as follows:
 
- * The group ID is not empty and is not already in use.
- * The LeafNode is valid, according to {{!I-D.ietf-mls-protocol}} 7.3. Leaf Node
-   validation.
- * The GroupInfo is valid, according to {{!I-D.ietf-mls-protocol}} 12.4.3. Adding
-   Members to the Group.
+ * The group ID MUST NOT be not empty and MUST NOT already be in use.
+ * The LeafNode MUST be valid, according to {{!I-D.ietf-mls-protocol}} 7.3. Leaf
+   Node validation.
+ * The GroupInfo MUST be valid, according to {{!I-D.ietf-mls-protocol}} 12.4.3.
+   Adding Members to the Group.
 
 ## Delete group
 
@@ -897,8 +898,8 @@ struct {
 
 The Delivery Service validates the request as follows:
 
- * The MLSGroupUpdate must contain a PublicMessage with a commit that contains
-   remove proposals for every member of the group except the committer.
+ * The MLSGroupUpdate MUST contain a PublicMessage with a commit that contains
+   Remove proposals for every member of the group except the committer.
 
 
 ## Add users to a group
@@ -925,13 +926,14 @@ struct {
 
 **Validation:**
 
-* The MLSGroupUpdate in the `commit` field must contain a PublicMessage with a
-  commit that contains only Add proposals.
+* The MLSGroupUpdate in the `commit` field MUST contain a PublicMessage with a
+  commit that contains only Add proposals with the possible exception of Remove
+  proposals as detailed in {{proposals-by-reference}}.
 * The commit MUST NOT change the sender's client credential.
-* Add proposals must not contain clients of existing group members.
-* Add proposals must not contain connection AddPackages, except if the group is
+* Add proposals MUST NOT contain clients of existing group members.
+* Add proposals MUST NOT contain connection AddPackages, except if the group is
   a connection group.
-* If guest users are added as part of the request, there has to be a distinct
+* If guest users are added as part of the request, there MUST be a distinct
   Welcome message for each guest DS involved.
 
 
@@ -949,11 +951,11 @@ struct {
 
 **Validation:**
 
-* The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
-  remove proposals.
+* The MLSGroupUpdate MUST contain a PublicMessage with a commit that contains
+  only Remove proposals (see also {{proposals-by-reference}}).
 * The commit MUST NOT change the sender's client credential.
-* The remove proposals in the commit MUST always remove all clients of one or
-  more users.
+* The Remove proposals that are committed by-value MUST always remove all
+  clients of one or more users.
 
 ## Add clients to a group
 
@@ -971,10 +973,11 @@ struct {
 
 **Validation:**
 
-* The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
-  add proposals.
+* The MLSGroupUpdate MUST contain a PublicMessage with a commit that contains
+  only Add proposals with the possible exception of Remove proposals as detailed
+  in {{proposals-by-reference}}.
 * The commit MUST NOT change the sender's client credential.
-* All Add proposals must contain clients of the same user as an existing group
+* All Add proposals MUST contain clients of the same user as an existing group
   member.
 
 ## Remove clients from a group
@@ -992,11 +995,11 @@ struct {
 
 **Validation:**
 
-* The MLSGroupUpdate must contain a PublicMessage with a commit that contains only
-  remove proposals.
+* The MLSGroupUpdate MUST contain a PublicMessage with a commit that contains only
+  Remove proposals.
 * The commit MUST NOT change the sender's client credential.
-* All remove proposals must target clients of the same user as the sending
-  client.
+* All Remove proposals committed to by-value MUST target clients of the same
+  user as the sending client
 
 ## Self remove a client from a group
 
@@ -1014,9 +1017,9 @@ struct {
 
 **Validation:**
 
-* The MLSMessage must contain a PublicMessage that contains a single
-  remove proposal.
-* The remove proposal must target the sending client.
+* The MLSMessage MUST contain a PublicMessage that contains a single
+  Remove proposal.
+* The Remove proposal MUST target the sending client.
 
 ## Update a client in a group
 
@@ -1035,9 +1038,9 @@ struct {
 
 **Validation:**
 
-* The MLSGroupUpdate must contain a PublicMessage that contains a commit with an
-  UpdatePath, but without other proposals.
-* If the leaf credential is changed by the update, the DS must validate the new
+* The MLSGroupUpdate MUST contain a PublicMessage that contains a commit with an
+  UpdatePath, but no other proposals by value.
+* If the leaf credential is changed by the update, the DS MUST validate the new
   credential.
 
 TODO: The discussion around identity and credentials should yield a method to
@@ -1062,9 +1065,9 @@ struct {
 
 **Validation:**
 
-* The MLSGroupUpdate must contain a PublicMessage that contains a commit with sender
+* The MLSGroupUpdate MUST contain a PublicMessage that contains a commit with sender
   type NewMemberCommit.
-* The sender of the ExternalJoinRequest must be a client that belongs to a user
+* The sender of the ExternalJoinRequest MUST be a client that belongs to a user
   that is already in the group.
 
 ## Send an application message to a group
@@ -1083,7 +1086,7 @@ struct {
 
 **Validation:**
 
-* The MLSMessage must contain a PrivateMessage with ContentType application.
+* The MLSMessage MUST contain a PrivateMessage with ContentType application.
 
 ## Fetch the DS' signature public key
 
@@ -1112,7 +1115,7 @@ The DS responds with the AddPackages of all clients listed in the request.
 
 **Validation:**
 
-* All client identifiers must refer to clients native to this DS.
+* All client identifiers MUST refer to clients native to this DS.
 * The DS SHOULD verify that the sender of the request is authorized to retrieve
   the DSAddPackages of the clients in question. For example, it could check if
   the user of the sending client has a connection with the user of the target
@@ -1139,8 +1142,8 @@ corresponding to the identifier in the request.
 
 **Validation:**
 
-* All client identifiers must refer to clients native to this DS.
-* All clients referred to by the identifiers must belong to the same user.
+* All client identifiers MUST refer to clients native to this DS.
+* All clients referred to by the identifiers MUST belong to the same user.
 
 ## ReInitialize a group
 
@@ -1155,9 +1158,9 @@ struct {
 
 **Validation:**
 
-* The MLSGroupUpdate must contain a PublicMessage that contains a commit with a
+* The MLSGroupUpdate MUST contain a PublicMessage that contains a commit with a
   re-init proposal.
-* The GroupID in the re-init proposal must point to another group owned by the
+* The GroupID in the re-init proposal MUST point to another group owned by the
   DS, which has a MIMI DS protocol version that is greater or equal than this
   group.
 
@@ -1373,17 +1376,24 @@ they join the group as part of the optional data in the WelcomePackage. This key
 is then used to encrypt all signature encryption keys attached to credentials
 used in that group.
 
-For credentials in KeyPackages, clients use a DPK that they distribute to users
-they have a connection with as part of the connection establishment process.
-When those users then want to use the KeyPackages, they have to re-encrypt the
-signature encryption key under the DPK of the group they want to add the owner
-of the KeyPackage to.
+For credentials in KeyPackages, the encrypted signatures are included in the
+AddPackage that wraps the KeyPackage.
 
 ~~~
 struct {
   opaque encrypted_signature_encryption_key<0..255>;
 } EncryptedSignatureEncryptionKey
+
+struct {
+  EncryptedSignatureEncryptionKey ciphertext;
+} RMAddPackageData
 ~~~
+
+To encrypt the signature encryption key, clients use a DPK that they distribute
+to users they have a connection with as part of the connection establishment
+process. When those users then want to use the KeyPackages, they have to
+re-encrypt the signature encryption key under the DPK of the group they want to
+add the owner of the KeyPackage to.
 
 ### Client credential encryption
 

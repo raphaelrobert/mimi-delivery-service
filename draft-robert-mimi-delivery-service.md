@@ -53,11 +53,6 @@ of handshake messages and uses MLS to implement a variety of other features:
    enforce group administration policies. Additionally, the Delivery Service can
    be linked to the Authentication Service to enforce more policies and
    validation rules.
- * Message delivery with reduced metadata: The Delivery Service can deliver
-   messages to the intended recipients without learning the identity of group
-   members, in particular the sender or the recipients of messages. This feature
-   is optional and is compatible with all other features, such as assistance
-   and validation.
  * Scalability: The protocol makes no assumption about whether the Delivery Service
    runs as a single instance or as a cluster of instances.
  * Network fluid: While the Delivery Service would typically run as a
@@ -75,19 +70,6 @@ of handshake messages and uses MLS to implement a variety of other features:
    and the Queueing Service.
 
 TODO: Make use of MUST/SHOULD, etc. throughout.
-
-The delivery service can operate in one of two modes: "Full Metadata" mode and
-"Reduced Metadata" mode.
-
-In Full Metadata mode, the protocol does not attempt to hide or avoid collecting
-any of the client's metadata. In Reduced Metadata mode, the individual
-operations leak as little metadata as possible to the DS.
-
-The protocol defined in this document allows for both modes through the use of
-enums and optional fields. A DS running in one specific mode has to validate
-that the protocol messages conform with that mode. For simplicity, the main part
-of this document specifies only the parts relevant for the normal mode, with the
-remaining parts specified in {{reduced-metadata-operating-mode}}.
 
 # Terminology
 
@@ -340,14 +322,9 @@ Secure messaging applications typically have a notion of users, where each user
 has one or more clients. As MLS does not have a native notion of users, it has
 to be provided by the MIMI DS protocol.
 
-For the Full Metadata mode, the MIMI DS protocol only requires that the user
-identifier can be derived from the client identifier. Authentication of a client
-is then assumed to imply authentication of the user.
-
-In the Reduced Metadata mode, the DS does not see real client or user
-identifiers, but instead has to work with pseudonyms. Here, the DS introduces
-its own notion of users. For more information see
-{{reduced-metadata-operating-mode}}.
+The MIMI DS protocol only requires that the user identifier can be derived from
+the client identifier. Authentication of a client is then assumed to imply
+authentication of the user.
 
 ## Version agility
 
@@ -421,10 +398,8 @@ struct {
 
 A DS supports a variety of operations. For presentational reasons, we only
 define DSRequestType and the corresponding `case` statement in DSRequestBody
-partially here. A more complete definition with all operations relevant for the
-normal DS operating mode can be found in {{operations}}, while the full
-definition including the operations relevant for the Reduced Metadata
-operating mode and can be found in {{reduced-metadata-operating-mode}}.
+partially here. The full definition with all operations relevant for the
+normal DS operating mode can be found in {{operations}}.
 
 The `authentication_data` field of a DSRequest depends on the request type and
 contains the data necessary for the DS to authenticate the request.
@@ -433,7 +408,6 @@ contains the data necessary for the DS to authenticate the request.
 enum {
   Anonymous,
   ClientSignature,
-  ...
 } DSAuthType;
 
 struct {
@@ -444,14 +418,9 @@ struct {
     case ClientSignature:
       uint32 sender_index;
       opaque signature<0..255>;
-    ...
   }
 } DSAuthData;
 ~~~
-
-For the normal DS operating mode, Anonymous and ClientSignature are the only
-relevant authentication types. The complete specification of DSAuthType and
-DSAuthBody can be found in {{reduced-metadata-operating-mode}}.
 
 Before the DS performs the requested operation, it performs an authentication
 operation depending on the DSAuthType.
@@ -518,9 +487,9 @@ struct DSResponseBody {
     case SignaturePublicKey:
       SignaturePublicKey signature_public_key;
     case KeyPackages:
-      AddPackage add_packages<V>;
+      KeyPackage key_packages<V>;
     case ConnectionKeyPackages:
-      AddPackage add_packages<V>;
+      KeyPackage key_packages<V>;
   }
 }
 
@@ -544,38 +513,18 @@ different messages for each destination DS with each message containing only the
 DSFanoutRecipients of that DS.
 
 ~~~
-enum {
-  ClientIdentifier,
-  ...
-} DSFanoutRecipientType;
-
-struct {
-  DSRecipientType recipient_type;
-  select (DSRecipient.recipient_type) {
-    case ClientIdentifier:
-      opaque client_id<0..255>;
-    ...
-  }
-} DSFanoutRecipient;
-
 struct {
   DSProtocolVersion protocol_version;
   FQDN sender;
-  DSFanoutRecipient recipients<V>;
+  opaque recipient_ids<V>;
   MLSMessage mls_message;
   // Signature over the above fields
   opaque signature<0..255>;
 } DSFanoutRequest
-
 ~~~
 
 The DS receiving a DSFanoutRequest can then store and forward the contained MLS
-message to the clients indicated in the `recipients` field.
-
-For presentational reasons, we only define DSRecipientType and the corresponding
-`case` statement in DSRecipient partially here. The rest of the definition is
-relevant only for the Reduced Metadata operating mode and can be found in
-{{reduced-metadata-operating-mode}}.
+message to the clients indicated in the `recipient_ids` field.
 
 The receiving DS verifies the signature using the sending DS' public signature
 key, process the message and sends a DSFanoutResponse.
@@ -606,27 +555,15 @@ struct {
 } DSFanoutResponse
 ~~~
 
-### AddPackages
+### KeyPackages
 
 As noted in {{keypackages}}, clients must upload KeyPackages such that other
-clients can add them to groups. For the Full Metadata operating mode, a regular
-KeyPackage is sufficient. However, as the Reduced Metadata mode requires
-additional data, the DS stores AddPackages instead for clients to download.
-
-~~~
-struct {
-  KeyPackage key_package;
-  optional<RMAddPackageData> rm_data;
-} AddPackage
-~~~
-
-AddPackages are also used to wrap connection KeyPackages. An AddPackage that
-contains a connection KeyPackages is also called a connection AddPackage.
+clients can add them to groups.
 
 ## Connection establishment flow
 
 A user can establish a connection to another user by creating a connection
-group, fetching connection AddPackage of the target user's clients from its DS
+group, fetching a connection KeyPackage of the target user's clients from its DS
 and inviting that user to the connection group. The receiving user can process
 the Welcome and figure out from the group state who the sender is. Additional
 information can either be attached to the group via an extension, or via MLS
@@ -641,10 +578,10 @@ added via additional messages or MLS extensions.
 Alice                        Owning DS                 Guest DS            Bob
 +                            +                         +                   +
 | Request Connection         |                         |                   |
-| AddPackages                |                         |                   |
+| KeyPackages                |                         |                   |
 +----------------------------------------------------->+                   |
 |                            |                         |                   |
-| Connection AddPackages     |                         |                   |
+| Connection KeyPackages     |                         |                   |
 +<-----------------------------------------------------+                   |
 |                            |                         |                   |
 | Create Connection group    |                         |                   |
@@ -777,10 +714,9 @@ enum {
   ds_external_join(9),
   ds_send_message(10),
   ds_signature_public_key(11),
-  ds_add_packages(12),
-  ds_connection_add_packages(13),
+  ds_key_packages(12),
+  ds_connection_key_packages(13),
   ds_re_initialize_group(14),
-  ...
 } DSRequestType;
 
 struct {
@@ -810,28 +746,15 @@ struct {
       SendMessageRequest send_message_request;
     case ds_signature_public_key:
       struct {};
-    case ds_add_packages:
-      AddPackagesRequest add_packages_request;
-    case ds_connection_add_packages:
-      ConnectionAddPackagesRequest connection_add_packages_request;
+    case ds_key_packages:
+      KeyPackagesRequest key_packages_request;
+    case ds_connection_key_packages:
+      ConnectionKeyPackagesRequest connection_key_packages_request;
     case ds_re_initialize_group:
       ReInitializeGroupRequest re_initialize_group_request;
-    ...
   }
-  optional<RMGroupStateEARKey> rn_data<0..255>;
 } DSRequestBody;
 ~~~
-
-A number of these operations require either slightly different or additional
-parameters in the privacy preserving operational mode. If the parameter is
-different, it will be defined as an enum with one variant for each mode. If
-additional parameters are required, a field with an optional type is included
-that contains a type prefixed with "RM" to indicate that it is relevant only for
-the privacy preserving mode.
-
-Additional variants specific to the privacy preserving mode, as well as the
-corresponding rest of the `case` statement can be found in
-{{reduced-metadata-operating-mode}}.
 
 ## Request group id
 
@@ -854,7 +777,6 @@ struct {
   opaque group_id<V>;
   LeafNode LeafNode;
   MLSMessage group_info;
-  optional<RMCreateGroupData>
 } CreateGroupRequest;
 ~~~
 
@@ -908,19 +830,13 @@ A request from a client to add one or more users to a group. For each user, one
 or more of the user's clients are added to the group. The Welcome messages in
 the request are then fanned out to the user's DSs.
 
-To obtain the AddPackages required to add the users' clients, the sender must
-first fetch the clients' AddPackages from their DS.
+To obtain the KeyPackages required to add the users' clients, the sender must
+first fetch the clients' KeyPackages from their DS.
 
 ~~~
 struct {
-  MLSMessage welcome;
-  optional<RMWelcomeData> rm_data;
-} WelcomePackage
-
-struct {
   MLSGroupUpdate group_update;
-  WelcomePackage welcome_packages<V>;
-  optional<RMAddClientsData> rm_data;
+  MLSMessage welcome_messages<V>;
 } AddUsersRequest;
 ~~~
 
@@ -931,7 +847,7 @@ struct {
   proposals as detailed in {{proposals-by-reference}}.
 * The commit MUST NOT change the sender's client credential.
 * Add proposals MUST NOT contain clients of existing group members.
-* Add proposals MUST NOT contain connection AddPackages, except if the group is
+* Add proposals MUST NOT contain connection KeyPackages, except if the group is
   a connection group.
 * If guest users are added as part of the request, there MUST be a distinct
   Welcome message for each guest DS involved.
@@ -966,8 +882,7 @@ new clients can add themselves by joining via external commit.
 ~~~
 struct {
   MLSGroupUpdate group_update;
-  WelcomePackage welcome_packages<V>;
-  optional<RMAddClientsData> rm_data;
+  MLSMessage welcome_messages<V>;
 } AddClientsRequest;
 ~~~
 
@@ -1032,7 +947,6 @@ credential.
 ~~~
 struct {
   MLSGroupUpdate group_update;
-  optional<RMUpdateClientData> rm_data;
 } UpdateClientRequest;
 ~~~
 
@@ -1059,7 +973,6 @@ has to fetch the external commit information from the DS.
 ~~~
 struct {
   MLSGroupUpdate group_update;
-  optional<RMExternalJoinData> rm_data;
 } ExternalJoinRequest;
 ~~~
 
@@ -1099,45 +1012,45 @@ the group's `external_senders` extension to validate those.
 The DS responds with a DSResponse of type SignaturePublicKey that contains the
 signature public key of this DS.
 
-## Fetch AddPackages of one or more clients
+## Fetch KeyPackages of one or more clients
 
-A request from a client to retrieve the AddPackage(s) of one or more clients of
-this DS. AddPackages are required to add other clients (and thus other users) to
+A request from a client to retrieve the KeyPackage(s) of one or more clients of
+this DS. KeyPackages are required to add other clients (and thus other users) to
 a group.
 
 ~~~
 struct {
   ClientID client_identifiers<V>;
-} AddPackagesRequest;
+} KeyPackagesRequest;
 ~~~
 
-The DS responds with the AddPackages of all clients listed in the request.
+The DS responds with the KeyPackages of all clients listed in the request.
 
 **Validation:**
 
 * All client identifiers MUST refer to clients native to this DS.
 * The DS SHOULD verify that the sender of the request is authorized to retrieve
-  the DSAddPackages of the clients in question. For example, it could check if
+  the DSKeyPackages of the clients in question. For example, it could check if
   the user of the sending client has a connection with the user of the target
   client(s).
 
-## Fetch connection AddPackages of one or more clients
+## Fetch connection KeyPackages of one or more clients
 
-A request from a client to retrieve the AddPackage(s) of all clients of a user
-of this DS. AddPackages obtained via this operation can only be used to add
+A request from a client to retrieve the KeyPackage(s) of all clients of a user
+of this DS. KeyPackages obtained via this operation can only be used to add
 clients to a connection group.
 
-Connection AddPackages are available separately from regular AddPackages, as
+Connection KeyPackages are available separately from regular KeyPackages, as
 they are meant to be accessed by clients of users with which the owning user has
 no connection.
 
 ~~~
 struct {
   UserID user_identifier;
-} ConnectionAddPackagesRequest;
+} ConnectionKeyPackagesRequest;
 ~~~
 
-The DS responds with connection AddPackages of all clients of the user
+The DS responds with connection KeyPackages of all clients of the user
 corresponding to the identifier in the request.
 
 **Validation:**
@@ -1267,353 +1180,6 @@ scope of this document.
 Additionally, in the same way as a DS might allow its users to block certain
 messages from specific users in the context of spam prevention, it may do the
 same based on abusive or illegal content.
-
-# Reduced metadata operating mode
-
-If the desired mode of operation is for the Delivery Service to learn as little
-as possible about the groups it owns and their individual members, the protocol
-can operate in a mode that protects the group state on the Delivery Service.
-This can happen through two complementary mechanisms:
-
-* Unlinking member credentials from credentials issued by the Authentication
-  Service, providing pseudonymity at the Delivery Service level
-* Encrypting the group state with a key that is only known to the group
-  members, providing encryption at rest
-
-In practice, the requests from clients to the Delivery Server are extended with
-additional parameters, such as decryption keys for the group state and
-additional pseudonymous user-level authentication.
-
-## Connection key material
-
-After the responder in a connection establishment process has joined the
-connection group created by the initiator, they MUST exchange their connection
-key material. This key material consists of keys that both users can use to hide
-metadata from the DS, or to authenticate themselves to the DS without revealing
-their identity when fetching KeyPackages for the other user.
-
-~~~
-struct {
-  opaque connection_token<0..255>;
-  opaque welcome_data_encryption_key<0..255>;
-  opaque de_pseudonymization_key<0..255>;
-} ConnectionKeyMaterial
-~~~
-
-The exact nature of the keys and what they are used for will become apparent in
-the following sections.
-
-## Group-level encryption keys
-
-Some of the metadata in the context of a group has to be encrypted to prevent
-the DS from seeing it. Since the members of that group should still be able to
-process the data fully, the protocol needs key material that is known to group
-members, but not to the DS. In theory, such key material could be derived from
-the Exporter key of the MLS group. However, this key changes with each epoch, so
-all data encrypted in this way would have to be re-encrypted every epoch.
-
-Instead, these group keys are randomly generated and distributed to new group
-members as part of the WelcomePackages. Instead of sending them in the clear,
-the sender of the Welcome encrypts them under the welcome data encryption key of
-each receiving user.
-
-~~~
-struct {
-  opaque de_pseudonymization_key<0..255>;
-  opaque credential_encryption_key<0..255>;
-  opaque group_state_encryption_key<0..255>;
-} GroupLevelKeys
-
-struct {
-  opaque encrypted_group_level_keys;
-} RMWelcomeData
-~~~
-
-TODO: Lifecycle of these keys. Rotation of such key material is tricky, as any
-member who has not joined yet via a Welcome message, or who is going to try to
-join via external commit with the old key is going to fail. Then how to retrieve
-that key? Our preferred solution would be to introduce a maximum time that
-clients can be offline. Then it would be possible to have an overlapping
-rotation window that ensures that anyone that wants to join can join.
-
-## Pseudonymous client identifiers and authentication
-
-As a general rule, clients MUST NOT use their real identifiers in credentials
-that they include in LeafNodes, be it in KeyPackages or as part of updates in
-their groups.
-
-Instead, clients use per-group pseudonyms, where each pseudonym consists is a
-randomly generated UUID. Once a user is added to a group, the pseudonym remains
-the same throughout the lifetime of that group.
-
-Despite this pseudonymization, clients must still be able to tie other group
-members to real client and user identities. To that end, clients sign their
-pseudonymized credentials with their client-level signature key material.
-
-Since the signature would reveal which client has signed a pseudonymized
-credential, that signature MUST be encrypted symmetrically using a signature
-encryption key.
-
-TODO: The authenticated encryption scheme used for the encryption should be
-determined by the MIMI DS protocol version.
-
-Whenever the client uses a pseudonymized credential, it attaches the symmetric
-encryption key encrypted under another key that in turn known to everyone who is
-meant to be able to authenticate the client in that context.
-
-There are two contexts in which a client needs to authenticate the credential of
-another client: In the context of a group and when a client fetches a KeyPackage
-from another client. (Note that there are no connection Key- or AddPackages in
-Reduced Metadata mode. See {{reduced-metadata-connection-establishment}} for
-more details.)
-
-### Signature encryption key management
-
-All groups operated in the Reduced Metadata mode have a de-pseudonymization key
-(DPK) associated with them that is known to all group members, but not the DS.
-It is randomly generated at group creation and is sent to new group members when
-they join the group as part of the optional data in the WelcomePackage. This key
-is then used to encrypt all signature encryption keys attached to credentials
-used in that group.
-
-For credentials in KeyPackages, the encrypted signatures are included in the
-AddPackage that wraps the KeyPackage.
-
-~~~
-struct {
-  opaque encrypted_signature_encryption_key<0..255>;
-} EncryptedSignatureEncryptionKey
-
-struct {
-  EncryptedSignatureEncryptionKey ciphertext;
-} RMAddPackageData
-~~~
-
-To encrypt the signature encryption key, clients use a DPK that they distribute
-to users they have a connection with as part of the connection establishment
-process. When those users then want to use the KeyPackages, they have to
-re-encrypt the signature encryption key under the DPK of the group they want to
-add the owner of the KeyPackage to.
-
-### Client credential encryption
-
-For clients to authenticate other group members, they do not only need to
-decrypt the encrypted signatures that accompany the credential of each member,
-they also need to know the client credentials that produced those signatures to
-verify them. To this end, whenever a client is added to the group (or joins it
-via an external commit), its client credential is uploaded to the group.
-However, since this data, too, is not meant to be visible by the DS, it is
-encrypted with a group level encryption key, the client credential encryption
-key.
-
-~~~
-struct {
-  opaque encrypted_client_credential<0..255>;
-} EncryptedClientCredential
-~~~
-
-Thus both the encrypted signature encryption key, as well as the encrypted
-client credential need to be uploaded to the group whenever a group client is
-added.
-
-~~~
-struct {
-  EncryptedSignatureEncryptionKey encrypted_signature_encryption_keys<V>;
-  EncryptedClientCredential encrypted_client_credentials<V>;
-} RMAddClientsData
-~~~
-
-The encrypted signature encryption key and the encrypted client credential also
-need to be maintained across updates, which means that whenever a client
-performs an update operation and changes its client credential it MAY update its
-encrypted signature encryption key and it MAY update its encrypted client
-credential.
-
-## Pseudonymous user identifiers and authentication
-
-Pseudonymous per-group client identifiers mean that the DS can not determine
-which client belongs to which user. Instead, whenever a user is added, that user
-has to supply the DS with a public signature key called the user authentication
-key.
-
-Since these user authentication keys are unique, per-group values, a user that
-was added to a group has to set them explicitly before it performs any other
-operation. User authentication keys are set using the regular update operation,
-which means that a newly added user MUST perform an update operation with one of
-its clients to set that key.
-
-Client then use the user authentication key to authenticate operations that
-require user level authentication, specifically client addition and removal, as
-well as joining via external commit.
-
-## AddPackage retrieval
-
-Since the DS can potentially observe which KeyPackage is added to which group,
-KeyPackages need to be published pseudonymously as well. This should be taken
-into account in the design of the DS' local client-to-server protocol.
-
-Similarly, clients should be able to retrieve AddPackages of other users without
-revealing their identity. On the one hand, this means that they cannot
-authenticate using their client-level authentication key material. Instead, each
-user has a connection token that it distributes to all users that they have a
-connection with. They also upload it to the DS s.t. clients can show that they
-are authorized to fetch AddPackages by showing the connection token.
-
-~~~
-enum {
-  Anonymous,
-  ClientSignature,
-  PseudonymousUserAuth,
-  ConnectionToken,
-} DSAuthType;
-
-struct {
-  DSAuthType auth_type;
-  select (DSAuthData.auth_type) {
-    case Anonymous:
-      struct {};
-    case ClientSignature:
-      uint32 sender_index;
-      opaque signature<0..255>;
-    case PseudonymousUserAuth:
-      opaque user_auth_hash<0..255>;
-      opaque signature<0..255>;
-    case ConnectionToken:
-      opaque connection_token<0..255>
-  }
-} DSAuthData;
-~~~
-
-## Pseudonymized fan-out
-
-If DS cannot see the real identifiers of group members, it needs more
-information to determine where to fan messages out to. To this end, clients
-supply the DS with group-specific FanoutPseudonyms.
-
-A FanoutPseudonym consists of the FQDN of the client's DS, as well as an octet
-string that allows the client's DS to further associate the message with the
-client. The local client-to-server protocol SHOULD ensure that that identifier
-is not tied to the client's real identifier.
-
-~~~
-struct {
-  opaque ds_domain_name<0..255>;
-  opaque destination_address<0..255>
-} FanoutPseudonym
-
-enum {
-  ClientIdentifier,
-  Pseudonym
-} DSFanoutRecipientType;
-
-struct {
-  DSRecipientType recipient_type;
-  select (DSRecipient.recipient_type) {
-    case ClientIdentifier:
-      opaque client_id<0..255>;
-    case Pseudonym:
-      FanoutPseudonym fanout_pseudonym
-  }
-} DSFanoutRecipient;
-~~~
-
-To allow for the delivery of messages immediately after clients were added to a
-group, clients need to include a FanoutPseudonym extension in their KeyPackages.
-
-Additionally, clients can update their FanoutPseudonym whenever they perform an
-update operation.
-
-~~~
-struct {
-  optional<EncryptedSignatureEncryptionKey> encrypted_signature_encryption_key;
-  optional<EncryptedClientCredential> encrypted_client_credential;
-  optional<opaque> user_authentication_key;
-  optional<FanoutPseudonym> fan_out_pseudonym
-} RMUpdateClientData
-~~~
-
-TODO: This extension would have to be defined in the context of the MLS WG.
-
-TODO: The intended way to use the destination address is for the client to have
-a queue pseudonymously registered to it on its own DS. The `destination_address`
-is then the identifier of the queue HPKE-encrypted to the client's DS, where for
-each group/KeyPackage, the client freshly encrypts the identifier to create
-unique ciphertexts.
-
-## Group state encryption at rest
-
-To additionally protect persisted metadata on the DS, the DS MUST encrypt the
-group state before it stores it in persistent state. The key used for encryption
-and decryption is another group-level key that clients send to the DS with
-DSRequest.
-
-~~~
-struct {
-  opaque group_state_ear_key<0..255>;
-} RMGroupStateEARKey
-~~~
-
-Whenever a client sends a DSRequest that is concerned with a specific group, it
-includes the group state encryption key in the DSRequestBody. The DS then
-decrypts the group state, performs the operation and re-encrypts it.
-
-## External joins
-
-For a client to perform an external join successfully, it needs all group-level
-keys. Since external join operations are only allowed for clients that belong to
-a user that is already in the group, those clients need to obtain the relevant
-key material from other clients of that user first.
-
-## Reduced metadata connection establishment
-
-The only major change to the protocol that is required in the Metadata Reduced
-mode of operation is moving the connection establishment flow from a Welcome
-based one to one based on external commits. While this change prevents the
-initiator from immediately sending messages after creating the connection group,
-it is necessary, because the use of KeyPackages allows the DS to track which
-group is used as the connection group.
-
-In this changed flow, the initiating client fetches a connection AddPackage, but
-instead of using it to add the clients of the responding user to the group, it
-encrypts a ConnectionEstablishmentInfo to the `hpke_init_key` in that
-KeyPackage.
-
-~~~
-struct {
-  opaque initiator_client_credential<0..255>;
-  opaque connection_group_id<0..255>;
-  GroupLevelKeys group_level_keys;
-  // Signature over the above fields using the signature key in the client
-  // credential
-  opaque signature<0..255>
-} ConnectionEstablishmentInfo
-
-struct {
-  opaque recipient_identifier<0..255>;
-  KeyPackageRef key_package_reference;
-  opaque encrypted_connection_establishment_info<0..255>;
-} ConnectionEstablishmentPackage
-~~~
-
-The `recipient_identifier` represents the real client identifier of the
-responding client.
-
-TODO: "client_credential" is a place holder for whatever the key material would
-look like that binds an authentication key to the sender's identity.
-
-The delivery of ConnectionEstablishmentPackages necessitates a new DS request
-type ds_fanout_cep, where the DSRequestBody contains a
-ConnectionEstablishmentPackage. The DS then stores and forwards the
-`key_package_ref` and the `encrypted_connection_establishment_info` to the
-client identified by the `recipient_identifier`.
-
-The recipient can then determine the `hpke_init_key` of which KeyPackage to use
-and decrypt the ConnectionEstablishmentInfo. It can then perform an external
-join operation on the group indicated by the `connection_group_id` using the
-`group_level_keys`.
-
-The users can then exchange information like the connection token via the
-connection group.
 
 # Security considerations
 

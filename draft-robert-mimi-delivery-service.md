@@ -392,6 +392,36 @@ TODO: Each MIMI DS protocol version should probably fix a set of ciphersuites,
 MLS protocol versions and maybe even extensions it supports. New ones can be
 added with protocol version upgrades.
 
+# Security properties overview
+
+The MIMI DS protocol provides a number of security guarantees.
+
+## MLS-based security properties
+
+The MLS protocol underlying the MIMI DS protocol provides end-to-end
+authentication for all messages, as well as additionally end-to-end
+confidentiality for all application messages. The DS can verify client
+signatures on MLS messages and thus verify that end-to-end authentication holds.
+
+The MIMI DS protocol also makes use of the authenticated channel provided by MLS
+to verify the authenticity of relevant extension data such as the QueueAuth
+tokens used for queue authorization.
+
+## Server-to-server authentication
+
+Server-to-server communication in the MIMI DS protocol is authenticated using
+signatures. Each server maintains a signature key that it uses to sign
+server-to-server messages and where the corresponding public key is available to
+other DSs through a dedicated endpoint. The MIMI transport protocol ensures that
+communication with that endpoint is authenticated using the web root of trust of
+the DS requesting the public key.
+
+## Queue Authorization
+
+When a client from a guest DS joins a group, it provides the owning DS with a
+QueueAuth token. The owning DS can then use that token to prove to the guest DS
+that it is authorized to deliver messages to the queue of that client.
+
 # Framing and processing overview
 
 ## Client to server requests

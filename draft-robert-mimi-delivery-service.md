@@ -313,6 +313,34 @@ KeyPackages only in that they include a LeafNode extension marking them as such.
 
 TODO: Such an extension would have to be specified in the context of the MLS WG.
 
+## Enqueue authorization
+
+TODO: This section sketches an authorization mechanism based on a KeyPackage
+extension. That extension would have to be defined in the context of the MLS WG.
+
+Each KeyPackage that a client publishes also carries a QueueAuthToken inside
+a QueueAuth KeyPackage extension.
+
+~~~
+struct {
+  opaque token<V>;
+} QueueAuthToken
+~~~
+
+Whenever a client is added to a group (or when a new group is created), the DS
+checks that the KeyPackages of all joiners contain a QueueAuth extension and
+stores the contained token alongside the group state.
+
+The QueueAuthToken is included in DSFanoutRequests and allows the receiving
+DS to check whether the sender is authorized to enqueue messages for the
+recipient.
+
+Clients can change their QueueAuthToken by sending a new token with an
+update operation.
+
+TODO: Details on the cryptographic scheme underlying the token.
+
+
 ## Clients and users
 
 TODO: This section needs to be revisited once identifiers and client/user
@@ -364,9 +392,9 @@ TODO: Each MIMI DS protocol version should probably fix a set of ciphersuites,
 MLS protocol versions and maybe even extensions it supports. New ones can be
 added with protocol version upgrades.
 
-## Framing and processing overview
+# Framing and processing overview
 
-### Client to server requests
+## Client to server requests
 
 All client to server requests consist of a MIMI DS specific protocol wrapper
 called DSRequst. DSRequest contains the MIMI DS protocol version, a body with
@@ -498,7 +526,7 @@ struct {
 } DSError
 ~~~
 
-### Server to server requests
+## Server to server requests
 
 After sending the response, and depending on the operation the DS might fan out
 messages to one or more guest DSs.
@@ -507,6 +535,9 @@ To that end, it wraps the MLSMessage to be fanned out into a DSFanoutRequest.
 In addition to the MLSMessage, the DSFanoutRequest contains the protocol
 version, the FQDN of the sending DS and the identifiers of all clients on DS
 that the message is meant to be fanned out to.
+
+It also contains the QueueAuthToken of each recipient (see
+{{enqueue-authorization}}).
 
 If the message needs to be fanned out to more than one guest DS, the DS prepares
 different messages for each destination DS with each message containing only the
@@ -517,17 +548,25 @@ struct {
   DSProtocolVersion protocol_version;
   FQDN sender;
   opaque recipient_ids<V>;
+  QueueAuthToken queue_auth_tokens<V>;
   MLSMessage mls_message;
   // Signature over the above fields
   opaque signature<0..255>;
 } DSFanoutRequest
 ~~~
 
-The DS receiving a DSFanoutRequest can then store and forward the contained MLS
-message to the clients indicated in the `recipient_ids` field.
+The receiving DS first verifies the signature using the sending DS' public
+signature key and then further validates the message by performing the following
+checks:
 
-The receiving DS verifies the signature using the sending DS' public signature
-key, process the message and sends a DSFanoutResponse.
+* That the protocol version is compatible with its configuration
+* That the `recipient_ids` are all clients of this DS
+* The the `queue_auth_tokens` are all valid tokens for the individual
+  recipients
+
+The recieving DS can then store and forward the contained MLS message to the
+clients indicated in the `recipient_ids` field and send a DSFanoutResponse.
+
 
 ~~~
 enum {
@@ -555,12 +594,12 @@ struct {
 } DSFanoutResponse
 ~~~
 
-### KeyPackages
+## KeyPackages
 
 As noted in {{keypackages}}, clients must upload KeyPackages such that other
 clients can add them to groups.
 
-## Connection establishment flow
+# Connection establishment flow
 
 A user can establish a connection to another user by creating a connection
 group, fetching a connection KeyPackage of the target user's clients from its DS
@@ -884,6 +923,7 @@ struct {
   a connection group.
 * If guest users are added as part of the request, there MUST be a distinct
   Welcome message for each guest DS involved.
+* All KeyPackages included in Add proposals MUST include a QueueAuth extension.
 
 
 ## Remove users from a group
@@ -927,6 +967,7 @@ struct {
 * The commit MUST NOT change the sender's client credential.
 * All Add proposals MUST contain clients of the same user as an existing group
   member.
+* All KeyPackages included in Add proposals MUST include a QueueAuth extension.
 
 ## Remove clients from a group
 
@@ -977,9 +1018,13 @@ the sender could use this operation to update its key material to achieve
 post-compromise security, update its Capabilities extension, or its leaf
 credential.
 
+The sending client can also choose to send a QueueAuthToken, which the DS uses
+to replace the client's existing token.
+
 ~~~
 struct {
   MLSGroupUpdate group_update;
+  optional<QueueAuthToken> token;
 } UpdateClientRequest;
 ~~~
 
@@ -1121,8 +1166,8 @@ are signed using signing key of the sending DS. The receiving DS can obtain the
 corresponding signature public key by sending a DSRequest to the sender
 indicated in the DSFanoutRequest.
 
-The request for the signature public key MUST be sent via an HTTPS secured channel, or
-otherwise authenticated using a root of trust present on the DS.
+The request for the signature public key MUST be sent via an HTTPS secured
+channel, or otherwise authenticated using a root of trust present on the DS.
 
 TODO: If the transport provides server-to-server authentication this section and
 the signature on the DSFanoutRequest can be removed.

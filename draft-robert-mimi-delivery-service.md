@@ -654,7 +654,7 @@ epochs. As a consequence, the DS MUST keep track of epochs in which clients are
 added and store the corresponding group states until each client has
 successfully joined.
 
-# Handling of standalone MLS Proposals {#proposals-by-reference}
+# Proposals and DS-initiated operations {#proposals-by-reference}
 
 MLS relies on a proposal-commit logic, where the proposals encode the specific
 action the sending client intends to take and the commit then performs the
@@ -666,27 +666,25 @@ a client, or a client to propose that it be removed from the group. Note that
 the latter example is the only way that a client can remove itself (i.e. leave)
 from a group.
 
-In MLS proposals can be committed "by reference" (if the proposal was sent
-separately before the commit), or "by value" if the proposal is sent as part of
-the commit itself.
+Such proposals, where the original sender differs from the sender of the commit
+are called "proposal by reference", or "proposal by value" if the proposal is
+sent by the committer as part of the commit itself.
 
-In all operations specified in the follow sections, the proposals in the commit
-that is included in the DSRequest MUST match the semantics of the operation and
-all of those proposals MUST be committed by value. For example, the commit
-in the AddUsersRequest MUST only contain Add proposals.
+The following sections detail operations that can be performed by clients, so
+each operation that entails a change to the group state (with the exception of
+the self remove operation) require the sender to perform a commit, where the
+semantics of the operation are reflected as proposals by value. For example, the
+commit in the AddUsersRequest must only contain Add proposals.
 
-However, in addition, each commit MAY also include an arbitrary number of valid
-proposals that were sent previously in the same epoch, such as server-initiated
-Remove proposals, or proposals sent as part of a self-remove operation.
+If a client receives a valid standalone proposal, it MUST store it and verify
+that the next commit includes said proposal.
 
-Such additional proposals MUST be committed by reference.
+TODO: Be more specific about proposal validation. Also, we might want to allow
+the server to rescind a proposal.
 
-To allow the DS to send proposals, all groups MUST contain an `external_senders`
-extension as defined in Section 12.1.8.1. of {{!I-D.ietf-mls-protocol}} that
-includes the DS' credential and its signature public key.
-
-TODO: Details of the DS credential. A BasicCredential with the FQDN of the DS
-would probably be sufficient.
+Whenever a client sends a commit as part of an operation, it MUST include all
+stored proposals by reference, such as server-initiated Remove proposals, or proposals sent
+as part of a self-remove operation.
 
 TODO: Proposals by reference pose a problem in the context of external commits,
 as, even if the external committer had access to all proposals in an epoch, it
@@ -695,7 +693,42 @@ commit. A solution could be introduced either as part of the MIMI DS protocol,
 or as an MLS extension. The latter would be preferable, as other users of MLS
 are likely going to encounter the same problem.
 
-# Operations
+# DS-initiated operations {#ds-operations}
+
+While the nature of MLS prevents the DS from performing changes to the group
+state itself, it can propose that clients perform certain actions and enforce
+the enactment of such proposals.
+
+To allow the DS to send proposals, all groups MUST contain an `external_senders`
+extension as defined in Section 12.1.8.1. of {{!I-D.ietf-mls-protocol}} that
+includes the DS' credential and its signature public key.
+
+TODO: We might also want to mandate that the group includes credentials of guest
+DSs involved in the group. However, for them to be able to send proposals, we'd
+need an additional operation/endpoint that the DS exposes.
+
+TODO: Details of the DS credential. A BasicCredential
+with the FQDN of the DS would probably be sufficient.
+
+The DS can simply create such proposals itself based on the group information
+and distribute it to all group members via regular DSFanoutRequests.
+
+## Client removals
+
+The DS can propose that one or more clients be removed from a given group. To
+that end, it issues a remove proposal for each client it wants removed, where
+each remove proposal targets the leaf of one of the clients in question.
+
+## Client additions
+
+The DS can propose that one or more clients be added to the group. It does so by
+issueing an add proposal for each client, where each add proposal contains a
+KeyPackage of the respective client.
+
+TODO: If the DS should be allowed to add clients that belong to another DS, we
+need an endpoint that allows DSs to fetch KeyPackages from one-another.
+
+# Client-initiated operations {#operations}
 
 The DS supports a number of operations, each of which is represented by a
 variant of the DSRequestType enum and has its own request body.

@@ -398,14 +398,21 @@ The MIMI DS protocol provides a number of security guarantees.
 
 ## MLS-based security properties
 
-The MLS protocol underlying the MIMI DS protocol provides end-to-end
-authentication for all messages, as well as additionally end-to-end
-confidentiality for all application messages. The DS can verify client
-signatures on MLS messages and thus verify that end-to-end authentication holds.
+The MLS protocol underlying the MIMI DS protocol provides a number of security
+guarantees that primarily affect end-to-end communication between clients such
+as authentication and confidentiality with forward- as well as post-compromise
+security (although the latter only holds for application messages). While the
+MIMI DS protocol acts as a layer around the MLS protocol it inherits some of
+MLSs security guarantees.
 
-The MIMI DS protocol also makes use of the authenticated channel provided by MLS
-to verify the authenticity of relevant extension data such as the QueueAuth
-tokens used for queue authorization.
+More concretely, the DS can verify client signatures on MLS messages and thus
+ensure that end-to-end authentication holds. Since the DS uses MLS messages to
+track the group state (including group membership), it is guaranteed to have the
+same view of that state as the group members.
+
+Finally, the MIMI DS protocol also makes use of the authenticated channel
+provided by MLS to verify the authenticity of relevant extension data such as
+the QueueAuth tokens used for queue authorization.
 
 ## Server-to-server authentication
 

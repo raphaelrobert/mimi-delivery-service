@@ -418,16 +418,18 @@ the QueueAuth tokens used for queue authorization.
 
 Server-to-server communication in the MIMI DS protocol is authenticated using a
 combination of unilateral authentication using sender signatures and unilateral
-authentication through HTTPS. This allows the recipient of a message to authenticate the sender by verifying the signature over the message, while the sender authenticates the recipient by sending the message via HTTPS.
+authentication through HTTPS. This allows the recipient of a message to
+authenticate the sender by verifying the signature over the message, while the
+sender authenticates the recipient by sending the message via HTTPS.
 
 TODO: Recipient authentication should be provided by the MIMI transport
 protocol. For now we're mentioning HTTPS here explicitly, but in the future, it
 might be another mechanism.
 
-Each DS maintains a signature key that it uses to
-sign server-to-server messages, thus allowing recipients to authenticate the
-sending DS. For example, when an owning DS fans out a group messages, it signs
-the message, thus allowing the receiving guest DS to authenticate the sender.
+Each DS maintains a signature key that it uses to sign server-to-server
+messages, thus allowing recipients to authenticate the sending DS. For example,
+when an owning DS fans out a group messages, it signs the message, thus allowing
+the receiving guest DS to authenticate the sender.
 
 A recipient that receives a message can retrieve the public key of the sender
 through a dedicated endpoint provided by the sending DS. The MIMI transport

@@ -101,7 +101,7 @@ TODO: User/client/identifiers definitions are preliminary.
 
 # Architecture and protocol overview
 
-The MIMI DS protocol allows interoperability between an owning DS which hosts a
+The MIMI DS protocol allows interoperability between a hub which hosts a
 group conversation and one or more guest DSs which are home to one or more of
 the conversation's group members. Underlying each group conversation is an MLS
 group that facilitates end-to-end encryption and authentication between group
@@ -115,7 +115,7 @@ clients in joining MLS groups.
 
 The MIMI DS protocol requires clients to send MLS messages as PublicMessages
 (with the exception of messages with content type `application`). This allows
-the owning DS to track the MLS group state in the same way as a client would,
+the hub to track the MLS group state in the same way as a client would,
 enabling it to keep an up-to-date and fully authenticated list of members, as
 well as provide the full MLS group state to joining group members, even for
 those joining via external commit. In addition, the DS can verify messages and
@@ -128,8 +128,8 @@ messages have to originate from the clients rather than the interoperating
 delivery services.
 
 The MIMI DS protocol consists of two parts: A client-to-server part that allows
-guest clients to interact with the owning DS of one of their groups and a
-server-to-server protocol that allows an owning DS to fan out messages to guest
+guest clients to interact with the hub of one of their groups and a
+server-to-server protocol that allows a hub to fan out messages to guest
 DSs, which can subsequently store and forward messages to their respective
 clients.
 
@@ -160,7 +160,7 @@ left to the MIMI transport protocol.
                                 v        |
                              +--+--------+--+
                              |              |
-                             | Owning DS    |
+                             | Hub          |
                              |              |
                              |              |
                              +--+--------+--+
@@ -177,8 +177,8 @@ left to the MIMI transport protocol.
 {: #full-sending-flow title="Architecture overview" }
 
 {{full-sending-flow}} shows an example protocol flow, where a client sends a
-request to its own guest DS, which in turn makes a request to the owning DS. The
-owning DS then fans out a message to another guest DS.
+request to its own guest DS, which in turn makes a request to the hub. The
+hub then fans out a message to another guest DS.
 
 Both the message sending and the fanout parts of the protocol are designed in a
 request/response pattern. In the first protocol part, the client sends a
@@ -186,7 +186,7 @@ DSRequest message to the Delivery Service and the Delivery Service responds with
 a DSResponse message. This pattern can easily be used over e.g. RESTful APIs.
 
 ~~~aasvg
-Client           Owning Delivery Service
+Client           Hub
 |                |
 | DSRequest      |
 +--------------->|
@@ -203,7 +203,7 @@ other members of a group as a result of an incoming DSRequest. The guest DS in
 turn responds with a DSFanoutResponse.
 
 ~~~aasvg
-Client           Owning Delivery Service           Guest Delivery Service
+Client           Hub                               Guest Delivery Service
 |                |                                 |
 | DSRequest      |                                 |
 +--------------->|                                 |
@@ -233,7 +233,7 @@ example to manage group membership, join groups, or send messages.
  * Client updates (MLS leaf updates)
  * Sending application messages
  * Download of KeyPackages
- * Enqueueing of a message fanned out from an owning DS
+ * Enqueueing of a message fanned out from an hub
  * Download of connection-specific KeyPackages
 
 ## Client removals induced by the Delivery Service
@@ -395,8 +395,8 @@ the FanoutAuth tokens used for queue authorization.
 
 ## Queue Authorization
 
-When a client from a guest DS joins a group, it provides the owning DS with a
-FanoutAuth token. The owning DS can then use that token to prove to the guest DS
+When a client from a guest DS joins a group, it provides the hub with a
+FanoutAuth token. The hub can then use that token to prove to the guest DS
 that it is authorized to deliver messages to the queue of that client.
 
 # Framing and processing overview
@@ -612,7 +612,7 @@ initial communication channel between the two users. More functionality can be
 added via additional messages or MLS extensions.
 
 ~~~aasvg
-Alice                        Owning DS                 Guest DS            Bob
+Alice                        Hub                       Guest DS            Bob
 +                            +                         +                   +
 | Request Connection         |                         |                   |
 | KeyPackages                |                         |                   |
@@ -639,11 +639,11 @@ Alice                        Owning DS                 Guest DS            Bob
 
 To verify and deliver messages, authenticate clients as members of a group and
 to assist clients that want to join a group, the DS keeps track of the state of
-each group it owns. More specifically, it keeps track of the group's ratchet
-tree, the group's GroupContext and other information required to produce a valid
-GroupInfo for the current group epoch. It does this by processing incoming MLS
-messages in the same way a member of that group would, except of course that the
-DS doesn't hold any private key material.
+each group for which it is the hub. More specifically, it keeps track of the
+group's ratchet tree, the group's GroupContext and other information required to
+produce a valid GroupInfo for the current group epoch. It does this by
+processing incoming MLS messages in the same way a member of that group would,
+except of course that the DS doesn't hold any private key material.
 
 While MLS messages are sufficient to keep track of most of the group information,
 it is not quite enough to create a GroupInfo. To allow the DS to provide a valid
@@ -1149,9 +1149,8 @@ struct {
 
 * The MLSGroupUpdate MUST contain a PublicMessage that contains a commit with a
   re-init proposal.
-* The GroupID in the re-init proposal MUST point to another group owned by the
-  DS, which has a MIMI DS protocol version that is greater or equal than this
-  group.
+* The GroupID in the re-init proposal MUST point to another group on this hub,
+  which has a MIMI DS protocol version that is greater or equal than this group.
 
 # DSFanoutRequests and DS-to-DS authentication
 

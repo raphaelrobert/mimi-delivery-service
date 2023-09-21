@@ -313,6 +313,34 @@ KeyPackages only in that they include a LeafNode extension marking them as such.
 
 TODO: Such an extension would have to be specified in the context of the MLS WG.
 
+## Enqueue authorization
+
+TODO: This section sketches an authorization mechanism based on a KeyPackage
+extension. That extension would have to be defined in the context of the MLS WG.
+
+Each KeyPackage that a client publishes also carries a FanoutAuthToken inside
+a FanoutAuth KeyPackage extension.
+
+~~~
+struct {
+  opaque token<V>;
+} FanoutAuthToken
+~~~
+
+Whenever a client is added to a group (or when a new group is created), the DS
+checks that the KeyPackages of all joiners contain a FanoutAuth extension and
+stores the contained token alongside the group state.
+
+The FanoutAuthToken is included in DSFanoutRequests and allows the receiving
+DS to check whether the sender is authorized to enqueue messages for the
+recipient.
+
+Clients can change their FanoutAuthToken by sending a new token with an
+update operation.
+
+TODO: Details on the cryptographic scheme underlying the token.
+
+
 ## Clients and users
 
 TODO: This section needs to be revisited once identifiers and client/user
@@ -364,9 +392,59 @@ TODO: Each MIMI DS protocol version should probably fix a set of ciphersuites,
 MLS protocol versions and maybe even extensions it supports. New ones can be
 added with protocol version upgrades.
 
-## Framing and processing overview
+# Security properties overview
 
-### Client to server requests
+The MIMI DS protocol provides a number of security guarantees.
+
+## MLS-based security properties
+
+The MLS protocol underlying the MIMI DS protocol provides a number of security
+guarantees that primarily affect end-to-end communication between clients such
+as authentication and confidentiality with forward- as well as post-compromise
+security (although the latter only holds for application messages). While the
+MIMI DS protocol acts as a layer around the MLS protocol it inherits some of
+MLSs security guarantees.
+
+More concretely, the DS can verify client signatures on MLS messages and thus
+ensure that end-to-end authentication holds. Since the DS uses MLS messages to
+track the group state (including group membership), it is guaranteed to have the
+same view of that state as the group members.
+
+Finally, the MIMI DS protocol also makes use of the authenticated channel
+provided by MLS to verify the authenticity of relevant extension data such as
+the FanoutAuth tokens used for queue authorization.
+
+## Server-to-server authentication
+
+Server-to-server communication in the MIMI DS protocol is authenticated using a
+combination of unilateral authentication using sender signatures and unilateral
+authentication through HTTPS. This allows the recipient of a message to
+authenticate the sender by verifying the signature over the message, while the
+sender authenticates the recipient by sending the message via HTTPS.
+
+TODO: Recipient authentication should be provided by the MIMI transport
+protocol. For now we're mentioning HTTPS here explicitly, but in the future, it
+might be another mechanism.
+
+Each DS maintains a signature key that it uses to sign server-to-server
+messages, thus allowing recipients to authenticate the sending DS. For example,
+when an owning DS fans out a group messages, it signs the message, thus allowing
+the receiving guest DS to authenticate the sender.
+
+A recipient that receives a message can retrieve the public key of the sender
+through a dedicated endpoint provided by the sending DS. The MIMI transport
+protocol ensures that the sending DS can unilaterally authenticate responses to
+public key requests using the sending DS' web root of trust.
+
+## Queue Authorization
+
+When a client from a guest DS joins a group, it provides the owning DS with a
+FanoutAuth token. The owning DS can then use that token to prove to the guest DS
+that it is authorized to deliver messages to the queue of that client.
+
+# Framing and processing overview
+
+## Client to server requests
 
 All client to server requests consist of a MIMI DS specific protocol wrapper
 called DSRequst. DSRequest contains the MIMI DS protocol version, a body with
@@ -498,7 +576,7 @@ struct {
 } DSError
 ~~~
 
-### Server to server requests
+## Server to server requests
 
 After sending the response, and depending on the operation the DS might fan out
 messages to one or more guest DSs.
@@ -507,6 +585,9 @@ To that end, it wraps the MLSMessage to be fanned out into a DSFanoutRequest.
 In addition to the MLSMessage, the DSFanoutRequest contains the protocol
 version, the FQDN of the sending DS and the identifiers of all clients on DS
 that the message is meant to be fanned out to.
+
+It also contains the FanoutAuthToken of each recipient (see
+{{enqueue-authorization}}).
 
 If the message needs to be fanned out to more than one guest DS, the DS prepares
 different messages for each destination DS with each message containing only the
@@ -517,17 +598,25 @@ struct {
   DSProtocolVersion protocol_version;
   FQDN sender;
   opaque recipient_ids<V>;
+  FanoutAuthToken fanout_auth_tokens<V>;
   MLSMessage mls_message;
   // Signature over the above fields
   opaque signature<0..255>;
 } DSFanoutRequest
 ~~~
 
-The DS receiving a DSFanoutRequest can then store and forward the contained MLS
-message to the clients indicated in the `recipient_ids` field.
+The receiving DS first verifies the signature using the sending DS' public
+signature key and then further validates the message by performing the following
+checks:
 
-The receiving DS verifies the signature using the sending DS' public signature
-key, process the message and sends a DSFanoutResponse.
+* That the protocol version is compatible with its configuration
+* That the `recipient_ids` are all clients of this DS
+* The the `fanout_auth_tokens` are all valid tokens for the individual
+  recipients
+
+The recieving DS can then store and forward the contained MLS message to the
+clients indicated in the `recipient_ids` field and send a DSFanoutResponse.
+
 
 ~~~
 enum {
@@ -555,12 +644,12 @@ struct {
 } DSFanoutResponse
 ~~~
 
-### KeyPackages
+## KeyPackages
 
 As noted in {{keypackages}}, clients must upload KeyPackages such that other
 clients can add them to groups.
 
-## Connection establishment flow
+# Connection establishment flow
 
 A user can establish a connection to another user by creating a connection
 group, fetching a connection KeyPackage of the target user's clients from its DS
@@ -884,6 +973,7 @@ struct {
   a connection group.
 * If guest users are added as part of the request, there MUST be a distinct
   Welcome message for each guest DS involved.
+* All KeyPackages included in Add proposals MUST include a FanoutAuth extension.
 
 
 ## Remove users from a group
@@ -927,6 +1017,7 @@ struct {
 * The commit MUST NOT change the sender's client credential.
 * All Add proposals MUST contain clients of the same user as an existing group
   member.
+* All KeyPackages included in Add proposals MUST include a FanoutAuth extension.
 
 ## Remove clients from a group
 
@@ -977,9 +1068,13 @@ the sender could use this operation to update its key material to achieve
 post-compromise security, update its Capabilities extension, or its leaf
 credential.
 
+The sending client can also choose to send a FanoutAuthToken, which the DS uses
+to replace the client's existing token.
+
 ~~~
 struct {
   MLSGroupUpdate group_update;
+  optional<FanoutAuthToken> token;
 } UpdateClientRequest;
 ~~~
 
@@ -1121,8 +1216,8 @@ are signed using signing key of the sending DS. The receiving DS can obtain the
 corresponding signature public key by sending a DSRequest to the sender
 indicated in the DSFanoutRequest.
 
-The request for the signature public key MUST be sent via an HTTPS secured channel, or
-otherwise authenticated using a root of trust present on the DS.
+The request for the signature public key MUST be sent via an HTTPS secured
+channel, or otherwise authenticated using a root of trust present on the DS.
 
 TODO: If the transport provides server-to-server authentication this section and
 the signature on the DSFanoutRequest can be removed.

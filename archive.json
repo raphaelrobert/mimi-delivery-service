@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2023-09-21T00:06:54.790917+00:00",
+  "timestamp": "2023-09-24T00:07:15.279968+00:00",
   "repo": "raphaelrobert/mimi-delivery-service",
   "labels": [
     {
@@ -412,7 +412,7 @@
       "id": "PR_kwDOIYehyc5YD8ff",
       "title": "Add  enqueue authorization",
       "url": "https://github.com/raphaelrobert/mimi-delivery-service/pull/10",
-      "state": "OPEN",
+      "state": "MERGED",
       "author": "kkohbrok",
       "authorAssociation": "COLLABORATOR",
       "assignees": [
@@ -421,26 +421,42 @@
       "labels": [],
       "body": "",
       "createdAt": "2023-08-16T12:51:28Z",
-      "updatedAt": "2023-08-17T15:08:23Z",
+      "updatedAt": "2023-09-21T11:39:50Z",
       "baseRepository": "raphaelrobert/mimi-delivery-service",
       "baseRefName": "main",
       "baseRefOid": "70c76f09899b8e7ee8ed4205efa9d86e004f3d66",
       "headRepository": "raphaelrobert/mimi-delivery-service",
       "headRefName": "konrad/enqueue_auth_draft",
       "headRefOid": "3800dc95bcc10b1de816710ca8715420693a82db",
-      "closedAt": null,
-      "mergedAt": null,
-      "mergedBy": null,
-      "mergeCommit": null,
+      "closedAt": "2023-09-21T11:39:50Z",
+      "mergedAt": "2023-09-21T11:39:50Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "c221c8b7e29e3547228f654c398f947a48bd24a7"
+      },
       "comments": [],
-      "reviews": []
+      "reviews": [
+        {
+          "id": "PRR_kwDOIYehyc5hm_AI",
+          "commit": {
+            "abbreviatedOid": "3800dc9"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2023-09-21T11:39:25Z",
+          "updatedAt": "2023-09-21T11:39:25Z",
+          "comments": []
+        }
+      ]
     },
     {
       "number": 11,
       "id": "PR_kwDOIYehyc5YD8tX",
       "title": "Add security properties overview section",
       "url": "https://github.com/raphaelrobert/mimi-delivery-service/pull/11",
-      "state": "OPEN",
+      "state": "MERGED",
       "author": "kkohbrok",
       "authorAssociation": "COLLABORATOR",
       "assignees": [
@@ -449,19 +465,79 @@
       "labels": [],
       "body": "",
       "createdAt": "2023-08-16T12:52:05Z",
-      "updatedAt": "2023-08-17T13:18:03Z",
+      "updatedAt": "2023-09-21T11:42:43Z",
       "baseRepository": "raphaelrobert/mimi-delivery-service",
       "baseRefName": "konrad/enqueue_auth_draft",
-      "baseRefOid": "14bd016b53b287baa7b9a462e8c4a1bcd7e757f7",
+      "baseRefOid": "3800dc95bcc10b1de816710ca8715420693a82db",
       "headRepository": "raphaelrobert/mimi-delivery-service",
       "headRefName": "konrad/sec_properties",
-      "headRefOid": "558fc647ed52350d99fea46180c731033fa13484",
-      "closedAt": null,
-      "mergedAt": null,
-      "mergedBy": null,
-      "mergeCommit": null,
+      "headRefOid": "dce0022f1eabfbb58db135e66c397259d83b0349",
+      "closedAt": "2023-09-21T11:42:43Z",
+      "mergedAt": "2023-09-21T11:42:43Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "3b208a004e7ce0843848ea6270aa8acea1987f98"
+      },
       "comments": [],
-      "reviews": []
+      "reviews": [
+        {
+          "id": "PRR_kwDOIYehyc5hm--e",
+          "commit": {
+            "abbreviatedOid": "558fc64"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2023-09-21T11:39:21Z",
+          "updatedAt": "2023-09-21T11:39:21Z",
+          "comments": []
+        }
+      ]
+    },
+    {
+      "number": 12,
+      "id": "PR_kwDOIYehyc5a4oA4",
+      "title": "Various updates",
+      "url": "https://github.com/raphaelrobert/mimi-delivery-service/pull/12",
+      "state": "MERGED",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [
+        "kkohbrok"
+      ],
+      "labels": [],
+      "body": "",
+      "createdAt": "2023-09-21T12:40:15Z",
+      "updatedAt": "2023-09-21T14:32:39Z",
+      "baseRepository": "raphaelrobert/mimi-delivery-service",
+      "baseRefName": "main",
+      "baseRefOid": "c221c8b7e29e3547228f654c398f947a48bd24a7",
+      "headRepository": "raphaelrobert/mimi-delivery-service",
+      "headRefName": "konrad/update",
+      "headRefOid": "26842e81df5596111e6bce86bdf1eaa3804fa467",
+      "closedAt": "2023-09-21T14:32:39Z",
+      "mergedAt": "2023-09-21T14:32:39Z",
+      "mergedBy": "raphaelrobert",
+      "mergeCommit": {
+        "oid": "71a415cdc6e6375920b5dfcd7984aca9c71c1318"
+      },
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOIYehyc5hoelK",
+          "commit": {
+            "abbreviatedOid": "26842e8"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "APPROVED",
+          "body": "",
+          "createdAt": "2023-09-21T14:32:33Z",
+          "updatedAt": "2023-09-21T14:32:33Z",
+          "comments": []
+        }
+      ]
     }
   ]
 }

@@ -270,7 +270,7 @@ extension. That extension would have to be defined in the context of the MLS WG.
 Each KeyPackage that a client publishes also carries a FanoutAuthToken inside
 a FanoutAuth KeyPackage extension.
 
-~~~
+~~~ tls
 struct {
   opaque token<V>;
 } FanoutAuthToken
@@ -786,6 +786,7 @@ credential.
 
 The sending client can also choose to send a FanoutAuthToken, which the DS uses
 to replace the client's existing token.
+
 ~~~ tls
 struct {
   MLSGroupUpdate group_update;

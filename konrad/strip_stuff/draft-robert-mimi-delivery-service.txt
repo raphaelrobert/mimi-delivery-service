@@ -56,8 +56,10 @@ Table of Contents
      4.2.  Transport for the MIMI DS protocol
      4.3.  Flow
      4.4.  Serialization format
-     4.5.  Version agility
-     4.6.  Group lifecycle
+     4.5.  KeyPackages
+     4.6.  Enqueue authorization
+     4.7.  Version agility
+     4.8.  Group lifecycle
    5.  Security properties overview
      5.1.  MLS-based security properties
    6.  Framing and processing overview
@@ -76,7 +78,8 @@ Table of Contents
      9.6.  Update a client in a group
      9.7.  Join the group using an external commit
      9.8.  Send an application message to a group
-     9.9.  ReInitialize a group
+     9.9.  Fetch KeyPackages of one or more clients
+     9.10. ReInitialize a group
    10. DSFanoutRequests
    11. Rate-limiting and spam prevention
    12. Abusive and illegal content
@@ -174,6 +177,9 @@ Table of Contents
 
    *  Retrieve the group state required for a client to (re-)join a
       group
+
+   *  Retrieve KeyPackages for one or more client associated with this
+      DS
 
    *  Propose adding a client to a group
 
@@ -335,7 +341,48 @@ Client           Hub                               Guest Delivery Service
    Octet strings resulting from serialization in this format are
    unambiguous and require no further canonicalization.
 
-4.5.  Version agility
+4.5.  KeyPackages
+
+   Clients have to upload KeyPackages such that others can add them to
+   groups.  In the context of interoperability, this means that clients
+   have to be able to download KeyPackages of clients belonging to other
+   DSs.
+
+   The MIMI DS protocol allows clients to download the KeyPackages of
+   other clients.  Uploading KeyPackages is outside of the scope of this
+   protocol, as it is not relevant for interoperability.
+
+   TODO: KeyPackages of last resort should be marked.  Ideally by using
+   a KeyPackage extension.
+
+4.6.  Enqueue authorization
+
+   TODO: This section sketches an authorization mechanism based on a
+   KeyPackage extension.  That extension would have to be defined in the
+   context of the MLS WG.
+
+   Each KeyPackage that a client publishes also carries a
+   FanoutAuthToken inside a FanoutAuth KeyPackage extension.
+
+   struct {
+     opaque token<V>;
+   } FanoutAuthToken
+
+   Whenever a client is added to a group (or when a new group is
+   created), the DS checks that the KeyPackages of all joiners contain a
+   FanoutAuth extension and stores the contained token alongside the
+   group state.
+
+   The FanoutAuthToken is included in DSFanoutRequests and allows the
+   receiving DS to check whether the sender is authorized to enqueue
+   messages for the recipient.
+
+   Clients can change their FanoutAuthToken by sending a new token with
+   an update operation.
+
+   TODO: Details on the cryptographic scheme underlying the token.
+
+4.7.  Version agility
 
    MLS provides version, ciphersuite and extension agility.  The
    versions, ciphersuites and extensions a client supports are
@@ -349,7 +396,7 @@ Client           Hub                               Guest Delivery Service
    TODO: Such an extension would have to be specified in the context of
    the MLS WG.
 
-4.6.  Group lifecycle
+4.8.  Group lifecycle
 
    Upon creation MLS groups are parameterized by a GroupID, an MLS
    version number, as well as a ciphersuite.  All three parameters are
@@ -492,6 +539,7 @@ Client           Hub                               Guest Delivery Service
      Error,
      WelcomeInfo,
      ExternalCommitInfo
+     KeyPackages,
    }
 
    struct DSResponseBody {
@@ -506,6 +554,8 @@ Client           Hub                               Guest Delivery Service
        case ExternalCommit:
          MLSMessage: group_info;
          optional<Node> ratchet_tree<V>;
+       case KeyPackages:
+         KeyPackage key_packages<V>;
      }
    }
 
@@ -521,12 +571,14 @@ Client           Hub                               Guest Delivery Service
    To that end, it wraps the MLSMessage to be fanned out into a
    DSFanoutRequest.  In addition to the MLSMessage, the DSFanoutRequest
    contains the protocol version, a list of client ids representing the
-   clients for which the payload is meant, as well as the payload to be
+   clients for which the payload is meant, a FanoutAuthToken (see
+   Section 4.6) for each of the clients, as well as the payload to be
    fanned out.
 
    struct {
      DSProtocolVersion protocol_version;
      opaque recipient_ids<V>;
+     FanoutAuthToken fanout_auth_tokens<V>;
      MLSMessage mls_message;
    } DSFanoutRequest
 
@@ -537,6 +589,9 @@ Client           Hub                               Guest Delivery Service
    *  That the protocol version is compatible with its configuration
 
    *  That the recipient_ids are all clients of this DS
+
+   *  The the fanout_auth_tokens are all valid tokens for the individual
+      recipients
 
    The recieving DS can then store and forward the contained MLS message
    to the clients indicated in the recipient_ids field and send a
@@ -712,6 +767,7 @@ Client           Hub                               Guest Delivery Service
      ds_update_client,
      ds_external_join,
      ds_send_message,
+     ds_key_packages,
    } DSRequestType;
 
    struct {
@@ -731,6 +787,8 @@ Client           Hub                               Guest Delivery Service
          ExternalJoinRequest external_join_request;
        case ds_send_message:
          SendMessageRequest send_message_request;
+       case ds_key_packages:
+         KeyPackagesRequest key_packages_request;
      }
    } DSRequestBody;
 
@@ -781,6 +839,9 @@ Client           Hub                               Guest Delivery Service
 
    *  The commit MUST NOT change the sender's client credential.
 
+   *  All KeyPackages included in Add proposals MUST include a
+      FanoutAuth extension.
+
 9.4.  Remove clients from a group
 
    A request from a client to remove one or more other clients.  Note
@@ -825,8 +886,12 @@ Client           Hub                               Guest Delivery Service
    key material to achieve post-compromise security, update its
    Capabilities extension, or its leaf credential.
 
+   The sending client can also choose to send a FanoutAuthToken, which
+   the DS uses to replace the client's existing token.
+
    struct {
      MLSGroupUpdate group_update;
+     optional<FanoutAuthToken> token;
    } UpdateClientRequest;
 
    *Validation:*
@@ -877,10 +942,30 @@ Client           Hub                               Guest Delivery Service
    *  The MLSMessage MUST contain a PrivateMessage with ContentType
       application.
 
-9.9.  ReInitialize a group
+9.9.  Fetch KeyPackages of one or more clients
+
+   A request from a client to retrieve the KeyPackage(s) of one or more
+   clients of this DS.  KeyPackages are required to add other clients
+   (and thus other users) to a group.
+
+   struct {
+     ClientID client_identifiers<V>;
+   } KeyPackagesRequest;
+
+   The DS responds with the KeyPackages of all clients listed in the
+   request.
+
+   *Validation:*
+
+   *  All client identifiers MUST refer to clients native to this DS.
+
+   *  The DS SHOULD verify that the sender of the request is authorized
+      to retrieve the DSKeyPackages of the clients in question.
+
+9.10.  ReInitialize a group
 
    A request from a client to re-initialize a group with different
-   parameters as outlined in Section 4.6.
+   parameters as outlined in Section 4.8.
 
    struct {
      MLSGroupUpdate commit;

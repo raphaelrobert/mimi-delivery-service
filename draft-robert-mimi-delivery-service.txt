@@ -5,7 +5,7 @@
 Network Working Group                                          R. Robert
 Internet-Draft                                                K. Kohbrok
 Intended status: Informational                               Phoenix R&D
-Expires: 24 March 2024                                 21 September 2023
+Expires: 25 April 2024                                   23 October 2023
 
 
                          MIMI Delivery Service
@@ -30,7 +30,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 24 March 2024.
+   This Internet-Draft will expire on 25 April 2024.
 
 Copyright Notice
 
@@ -50,55 +50,42 @@ Table of Contents
 
    1.  Introduction
    2.  Terminology
-   3.  Architecture and protocol overview
-     3.1.  Client to server and server to server protocol
-     3.2.  Transport for the MIMI DS protocol
-     3.3.  Flow
-     3.4.  Supported operations
-     3.5.  Client removals induced by the Delivery Service
-     3.6.  Serialization format
-     3.7.  KeyPackages
-       3.7.1.  Connection KeyPackages
-     3.8.  Enqueue authorization
-     3.9.  Clients and users
-     3.10. Version agility
-     3.11. Group lifecycle
-   4.  Security properties overview
-     4.1.  MLS-based security properties
-     4.2.  Queue Authorization
-   5.  Framing and processing overview
-     5.1.  Client to server requests
-     5.2.  Server to server requests
-     5.3.  KeyPackages
-   6.  Connection establishment flow
+   3.  Interfaces
+   4.  Architecture and protocol overview
+     4.1.  Client to server and server to server protocol
+     4.2.  Transport for the MIMI DS protocol
+     4.3.  Flow
+     4.4.  Serialization format
+     4.5.  KeyPackages
+     4.6.  Enqueue authorization
+     4.7.  Version agility
+     4.8.  Group lifecycle
+   5.  Security properties overview
+     5.1.  MLS-based security properties
+   6.  Framing and processing overview
+     6.1.  Client to server requests
+     6.2.  Server to server requests
    7.  DS assisted joining
    8.  Proposals and DS-initiated operations
-   9.  DS-initiated operations
-     9.1.  Client removals
-     9.2.  Client additions
-   10. Client-initiated operations
-     10.1.  Request group id
-     10.2.  Create group
-     10.3.  Delete group
-     10.4.  Add users to a group
-     10.5.  Remove users from a group
-     10.6.  Add clients to a group
-     10.7.  Remove clients from a group
-     10.8.  Self remove a client from a group
-     10.9.  Update a client in a group
-     10.10. Join the group using an external commit
-     10.11. Send an application message to a group
-     10.12. Fetch the DS' signature public key
-     10.13. Fetch KeyPackages of one or more clients
-     10.14. Fetch connection KeyPackages of one or more clients
-     10.15. ReInitialize a group
-   11. DSFanoutRequests and DS-to-DS authentication
-   12. Role-based access control in groups
-   13. Rate-limiting and spam prevention
-   14. Abusive and illegal content
-   15. Security considerations
-     15.1.  Transport Security
-   16. Normative References
+     8.1.  Client removals
+     8.2.  Client additions
+   9.  Client-initiated operations
+     9.1.  Request group id
+     9.2.  Delete group
+     9.3.  Add clients to a group
+     9.4.  Remove clients from a group
+     9.5.  Self remove a client from a group
+     9.6.  Update a client in a group
+     9.7.  Join the group using an external commit
+     9.8.  Send an application message to a group
+     9.9.  Fetch KeyPackages of one or more clients
+     9.10. ReInitialize a group
+   10. DSFanoutRequests
+   11. Rate-limiting and spam prevention
+   12. Abusive and illegal content
+   13. Security considerations
+     13.1.  Transport Security
+   14. Normative References
    Authors' Addresses
 
 1.  Introduction
@@ -128,11 +115,10 @@ Table of Contents
       messages.
 
    *  Built-in authentication of group members and policy enforcement:
-      The Delivery Service can authenticate group members, reject
-      messages from non-members and enforce group administration
-      policies.  Additionally, the Delivery Service can be linked to the
-      Authentication Service to enforce more policies and validation
-      rules.
+      The Delivery Service can authenticate group members and reject
+      messages from non-members.  Additionally, the Delivery Service can
+      be linked to the Authentication Service to enforce more policies
+      and validation rules.
 
    *  Scalability: The protocol makes no assumption about whether the
       Delivery Service runs as a single instance or as a cluster of
@@ -148,62 +134,83 @@ Table of Contents
       Delivery Service can be forwarded by a client's local instance of
       this service.
 
-   *  Multi-device capable: The Delivery Service can be used by multiple
-      devices of the same users and supports adding and removing devices
-      of a user.
-
-   *  A Queueing Service subcomponent that can be used to implement a
-      queueing service for messages that are delivered asynchronously,
-      particularly in federated environments, as well as the protocol
-      between the Delivery Service and the Queueing Service.
-
    TODO: Make use of MUST/SHOULD, etc. throughout.
 
 2.  Terminology
 
-   This document uses the terminology defined in [I-D.ietf-mls-protocol]
-   with the following additions:
+   This document uses the terminology defined in [RFC9420] with the
+   following additions:
 
-   *  DS Domain: Fully qualified domain name as defined in RFC 2181 that
-      represents the DS.  This does not necessarily have to be the
+   *  DS Domain: Fully qualified domain name as defined in [RFC2181]
+      that represents the DS.  This does not necessarily have to be the
       domain under which the DS is reachable on the network.
-      Discovering that domain is the responsibility of the MIMI
-      transport protocol over which the MIMI DS protocol runs.  TODO:
-      User/client/identifiers definitions are preliminary.
-
-   *  User: An entity that operates zero or more clients.
-
-   *  User identifier: An identifier that is unique in the scope of its
-      DS and that allows resolution to the providers DS domain.
-
-   *  Participant: A user that is participating in a group.  If the
-      participant has a client in the group, it is called an active
-      participant.
+      Discovering that domain is the responsibility of the transport
+      protocol over which the MIMI DS protocol runs.  TODO: client
+      identifiers definitions are preliminary.
 
    *  Client: An MLS client with a unique client identifier.
 
    *  Client identifier: An octet string that uniquely identifies the
-      client.  A client identifier includes the identifier of its user
-      or otherwise allows the association between the client and its
-      user.
+      client and that maps to the DS domain of the client's DS.
 
-   *  Connection: An agreement between two users, where each user
-      authorizes the other to send them messages and to add them to
-      groups.
+3.  Interfaces
 
-   *  Connection establishment: The process by which a connection
-      between two users is established.  The process is manually
-      initiated by one user and fetching the key material of the other
-      user.  The other user must be able to authenticate the initiator
-      and manually authorize the response.
+   The MIMI DS tracks the state of individual MLS groups on a hub by
+   processing group operations.  The MIMI DS can process the following
+   requests originating from clients:
 
-   *  Connection group: An MLS group consisting of the clients of two
-      users.  For each pair of users, there can only be one connection
-      group between them.  A connection group is created when one user
-      requests a connection with another user, followed by that user's
-      consent.
+   *  Add clients to a group
 
-3.  Architecture and protocol overview
+   *  Inject the sending client into a group (external join)
+
+   *  Remove clients from a group
+
+   *  Updates their MLS key material
+
+   *  Send application messages
+
+   TODO: This list will either grow longer if we want to keep distinct
+   operations, or shorter, if we don't.  In the latter case, we'll need
+   more extensive commit validation.
+
+   Follower servers can send requests the following:
+
+   *  Retrieve the group state required for a client to (re-)join a
+      group
+
+   *  Retrieve KeyPackages for one or more client associated with this
+      DS
+
+   *  Propose adding a client to a group
+
+   *  Propose removing a client from a group
+
+   *  Propose re-initializing of a group
+
+   TODO: Probably more proposals.
+
+   Regardless if a request came from a client or a follower server, the
+   MIMI DS will process in two steps: Staging and merging.  The first
+   step consists of authentication and validation checks, after which
+   the MIMI DS stages the changes to the group state that result from
+   the requested operation.  In a second step, the MIMI DS merges the
+   staged changes into the MLS group state.
+
+   Locally, the MIMI DS thus provides the following interface:
+
+   *  Provide a Membership list (and associated metadata)
+
+   *  Process a query from a client and stage the corresponding changes
+
+   *  Process a query from a follower server and stage the corresponding
+      changes
+
+   *  Merge the changes resulting from a previously processed query
+
+   Naturally, the local interface allows the same operations as for
+   follower servers.
+
+4.  Architecture and protocol overview
 
    The MIMI DS protocol allows interoperability between a hub which
    hosts a group conversation and one or more guest DSs which are home
@@ -226,11 +233,11 @@ Table of Contents
    external commit.  In addition, the DS can verify messages and enforce
    access control policies on group operations.
 
-3.1.  Client to server and server to server protocol
+4.1.  Client to server and server to server protocol
 
-   MLS being a protocol for end-to-end encryption, a subset of MIMI DS
-   protocol messages have to originate from the clients rather than the
-   interoperating delivery services.
+   MLS being a protocol for end-to-end encryption, the MLS protocol
+   messages that many of the MIMI DS protocol messages have to originate
+   from the clients rather than the interoperating delivery services.
 
    The MIMI DS protocol consists of two parts: A client-to-server part
    that allows guest clients to interact with the hub of one of their
@@ -241,17 +248,17 @@ Table of Contents
    Note that the client-to-server part of the protocol can optionally be
    proxied via the guest DS of the sending client.
 
-3.2.  Transport for the MIMI DS protocol
+4.2.  Transport for the MIMI DS protocol
 
    The MIMI DS protocol requires a transport protocol that provides
    confidentiality of messages and that allows the discovery of a DS
-   based on the DS domain in a user identifier.
+   based on the DS domain in a client identifier.
 
    The client-to-server part of the MIMI DS protocol provide sender
    authentication.  Recipient authentication, as well as mutual server-
    to-server authentication is left to the MIMI transport protocol.
 
-3.3.  Flow
+4.3.  Flow
 
    +-------------+              +--------------+
    |             +------------->+              |
@@ -323,48 +330,7 @@ Client           Hub                               Guest Delivery Service
 
      Figure 3: Client/Delivery Service communication with fanout
 
-3.4.  Supported operations
-
-   The MIMI DS protocol allows guest clients to request a variety of
-   operations for example to manage group membership, join groups, or
-   send messages.
-
-   *  Group creation/deletion
-
-   *  Join a group from a Welcome message as a new member
-
-   *  Join a group through an External Commit message as a new member or
-      client of an existing member (e.g.  Resync a client after state
-      loss)
-
-   *  Adding and removing users to/from a group
-
-   *  Adding and removing clients to/from a member of the group
-
-   *  Client updates (MLS leaf updates)
-
-   *  Sending application messages
-
-   *  Download of KeyPackages
-
-   *  Enqueueing of a message fanned out from an hub
-
-   *  Download of connection-specific KeyPackages
-
-3.5.  Client removals induced by the Delivery Service
-
-   Independent of client requests, the Delivery Service itself can
-   remove clients from a group by issuing remove proposals in the
-   following cases:
-
-   *  A user has removed a client from its account
-
-   *  A user has been deleted
-
-   *  The client is removed from the group because it has been inactive
-      for too long
-
-3.6.  Serialization format
+4.4.  Serialization format
 
    MLS messages use the presentation language and encoding format
    defined in [RFC8446] with the extensions defined in the MLS protocol
@@ -375,7 +341,7 @@ Client           Hub                               Guest Delivery Service
    Octet strings resulting from serialization in this format are
    unambiguous and require no further canonicalization.
 
-3.7.  KeyPackages
+4.5.  KeyPackages
 
    Clients have to upload KeyPackages such that others can add them to
    groups.  In the context of interoperability, this means that clients
@@ -389,19 +355,7 @@ Client           Hub                               Guest Delivery Service
    TODO: KeyPackages of last resort should be marked.  Ideally by using
    a KeyPackage extension.
 
-3.7.1.  Connection KeyPackages
-
-   In addition to regular KeyPackages, the MIMI DS protocol requires
-   clients to provide connection KeyPackages for other clients to
-   download.  Connection KeyPackages are meant for use in the connection
-   establishment process (explained in more detail in Section 6) and
-   differ from regular KeyPackages only in that they include a LeafNode
-   extension marking them as such.
-
-   TODO: Such an extension would have to be specified in the context of
-   the MLS WG.
-
-3.8.  Enqueue authorization
+4.6.  Enqueue authorization
 
    TODO: This section sketches an authorization mechanism based on a
    KeyPackage extension.  That extension would have to be defined in the
@@ -428,33 +382,7 @@ Client           Hub                               Guest Delivery Service
 
    TODO: Details on the cryptographic scheme underlying the token.
 
-3.9.  Clients and users
-
-   TODO: This section needs to be revisited once identifiers and client/
-   user authentication in general have been decided on by the MIMI WG.
-
-   TODO: This topic is still under discussion, so this section only
-   represents a suggestion for an MLS-based flow.  Once we have more
-   clarity on what participant data management looks like, we will
-   update all other relevant sections of this document.
-
-   Each MIMI-DS managed group contains a MIMIParticipantExtension as
-   part of its GroupContext.  The MIMIParticipantExtension contains a
-   participant list, i.e. all users that are associated with the group.
-   Note that this includes inactive participants.
-
-   TODO: This extension can later be extended by also containing the
-   roles of the participants to facilitate RBAC.
-
-   The participant list is changed via MIMIParticipant proposals, which
-   can be issued by clients or servers and that can be the committed by
-   clients as part of client-initiated operations as specified in
-   Section 10.  Each MIMIParticpipant proposal can add, remove or update
-   a user's record in the MIMIParticipantExtension.  The data in the
-   extension MUST be consistent with the membership data of the MLS
-   group.
-
-3.10.  Version agility
+4.7.  Version agility
 
    MLS provides version, ciphersuite and extension agility.  The
    versions, ciphersuites and extensions a client supports are
@@ -468,7 +396,7 @@ Client           Hub                               Guest Delivery Service
    TODO: Such an extension would have to be specified in the context of
    the MLS WG.
 
-3.11.  Group lifecycle
+4.8.  Group lifecycle
 
    Upon creation MLS groups are parameterized by a GroupID, an MLS
    version number, as well as a ciphersuite.  All three parameters are
@@ -481,8 +409,8 @@ Client           Hub                               Guest Delivery Service
 
    While all these parameters cannot be changed throughout a group's
    lifetime, the group can be re-initialized as described in
-   Section 11.2. of [I-D.ietf-mls-protocol] to create a new group with a
-   new set of parameters.
+   Section 11.2. of [RFC9420] to create a new group with a new set of
+   parameters.
 
    The MIMI DS protocol supports re-initializations of groups using the
    corresponding ReInitialization operation under the condition that all
@@ -495,11 +423,11 @@ Client           Hub                               Guest Delivery Service
    ciphersuites, MLS protocol versions and maybe even extensions it
    supports.  New ones can be added with protocol version upgrades.
 
-4.  Security properties overview
+5.  Security properties overview
 
    The MIMI DS protocol provides a number of security guarantees.
 
-4.1.  MLS-based security properties
+5.1.  MLS-based security properties
 
    The MLS protocol underlying the MIMI DS protocol provides a number of
    security guarantees that primarily affect end-to-end communication
@@ -515,21 +443,9 @@ Client           Hub                               Guest Delivery Service
    membership), it is guaranteed to have the same view of that state as
    the group members.
 
-   Finally, the MIMI DS protocol also makes use of the authenticated
-   channel provided by MLS to verify the authenticity of relevant
-   extension data such as the FanoutAuth tokens used for queue
-   authorization.
+6.  Framing and processing overview
 
-4.2.  Queue Authorization
-
-   When a client from a guest DS joins a group, it provides the hub with
-   a FanoutAuth token.  The hub can then use that token to prove to the
-   guest DS that it is authorized to deliver messages to the queue of
-   that client.
-
-5.  Framing and processing overview
-
-5.1.  Client to server requests
+6.1.  Client to server requests
 
    All client to server requests consist of a MIMI DS specific protocol
    wrapper called DSRequst.  DSRequest contains the MIMI DS protocol
@@ -537,9 +453,7 @@ Client           Hub                               Guest Delivery Service
    authentication information.
 
    enum {
-     ds_request_group_id(0),
-     ds_create_group(1),
-     ds_delete_group(2),
+     ds_delete_group(0),
      ...
    } DSRequestType;
 
@@ -562,7 +476,7 @@ Client           Hub                               Guest Delivery Service
    we only define DSRequestType and the corresponding case statement in
    DSRequestBody partially here.  The full definition with all
    operations relevant for the normal DS operating mode can be found in
-   Section 10.
+   Section 9.
 
    The authentication_data field of a DSRequest depends on the request
    type and contains the data necessary for the DS to authenticate the
@@ -600,11 +514,11 @@ Client           Hub                               Guest Delivery Service
    } ClientSignatureTBS
 
    Note that all group operations additionally contain an MLSMessage the
-   content of which mirrors the request type, e.g., an AddUsers request
-   wraps an MLS commit that in turn contains the Add proposals for the
-   users' clients.  In that case, the DS uses the GroupID inside the
-   MLSMessage to determine which group the request refers to and
-   verifies the MLSMessage in the same way an MLS client would
+   content of which mirrors the request type, e.g., an AddClients
+   request wraps an MLS commit that in turn contains the Add proposals
+   for the clients to be added.  In that case, the DS uses the GroupID
+   inside the MLSMessage to determine which group the request refers to
+   and verifies the MLSMessage in the same way an MLS client would
    (including the signature).
 
    Depending on the nature of the request, clients can also include data
@@ -623,12 +537,9 @@ Client           Hub                               Guest Delivery Service
    enum DSResponseType {
      Ok,
      Error,
-     GroupID,
      WelcomeInfo,
      ExternalCommitInfo
-     SignaturePublicKey,
      KeyPackages,
-     ConnectionKeyPackages,
    }
 
    struct DSResponseBody {
@@ -638,18 +549,12 @@ Client           Hub                               Guest Delivery Service
          struct {};
        case Error:
          DSError error;
-       case GroupID:
-         opaque group_id<V>;
        case WelcomeInfo:
          optional<Node> ratchet_tree<V>;
        case ExternalCommit:
          MLSMessage: group_info;
          optional<Node> ratchet_tree<V>;
-       case SignaturePublicKey:
-         SignaturePublicKey signature_public_key;
        case KeyPackages:
-         KeyPackage key_packages<V>;
-       case ConnectionKeyPackages:
          KeyPackage key_packages<V>;
      }
    }
@@ -658,7 +563,7 @@ Client           Hub                               Guest Delivery Service
      TODO: Operation specific errors.
    } DSError
 
-5.2.  Server to server requests
+6.2.  Server to server requests
 
    After sending the response, and depending on the operation the DS
    might fan out messages to one or more guest DSs.
@@ -667,7 +572,7 @@ Client           Hub                               Guest Delivery Service
    DSFanoutRequest.  In addition to the MLSMessage, the DSFanoutRequest
    contains the protocol version, a list of client ids representing the
    clients for which the payload is meant, a FanoutAuthToken (see
-   Section 3.8) for each of the clients, as well as the payload to be
+   Section 4.6) for each of the clients, as well as the payload to be
    fanned out.
 
    struct {
@@ -715,48 +620,6 @@ Client           Hub                               Guest Delivery Service
      DSProtocolVersion protocol_version;
      DSResponseBody response_body;
    } DSFanoutResponse
-
-5.3.  KeyPackages
-
-   As noted in Section 3.7, clients must upload KeyPackages such that
-   other clients can add them to groups.
-
-6.  Connection establishment flow
-
-   A user can establish a connection to another user by creating a
-   connection group, fetching a connection KeyPackage of the target
-   user's clients from its DS and inviting that user to the connection
-   group.  The receiving user can process the Welcome and figure out
-   from the group state who the sender is.  Additional information can
-   either be attached to the group via an extension, or via MLS
-   application messages within that group.
-
-   TODO: This is a sketch for a simple connection establishment flow
-   that allows the recipient to identify and authenticate the sender and
-   that establishes an initial communication channel between the two
-   users.  More functionality can be added via additional messages or
-   MLS extensions.
-
-Alice                        Hub                       Guest DS            Bob
-+                            +                         +                   +
-| Request Connection         |                         |                   |
-| KeyPackages                |                         |                   |
-+----------------------------------------------------->+                   |
-|                            |                         |                   |
-| Connection KeyPackages     |                         |                   |
-+<-----------------------------------------------------+                   |
-|                            |                         |                   |
-| Create Connection group    |                         |                   |
-+--------------------------->+                         |                   |
-|                            |                         |                   |
-| Add Responder              |                         | Deliver Welcome   |
-+--------------------------->+ Fan out Welcome         | (proprietary      |
-|                            +------------------------>+  protocol)        |
-|                            |                         +------------------>+
-|                            |                         |                   |
-+                            +                         +                   +
-
-         Figure 4: Example flow for connection establishment
 
 7.  DS assisted joining
 
@@ -836,7 +699,7 @@ Alice                        Hub                       Guest DS            Bob
    (with the exception of the self remove operation) require the sender
    to perform a commit, where the semantics of the operation are
    reflected as proposals by value.  For example, the commit in the
-   AddUsersRequest must only contain Add proposals.
+   AddClientsRequest must only contain Add proposals.
 
    If a client receives a valid standalone proposal, it MUST store it
    and verify that the next commit includes said proposal.
@@ -857,37 +720,31 @@ Alice                        Hub                       Guest DS            Bob
    extension.  The latter would be preferable, as other users of MLS are
    likely going to encounter the same problem.
 
-9.  DS-initiated operations
-
-   While the nature of MLS prevents the DS from performing changes to
-   the group state itself, it can propose that clients perform certain
-   actions and enforce the enactment of such proposals.
-
    To allow the DS to send proposals, all groups MUST contain an
    external_senders extension as defined in Section 12.1.8.1. of
-   [I-D.ietf-mls-protocol] that includes the DS' credential and its
-   signature public key.
+   [RFC9420] that includes the DS' credential and its signature public
+   key.
 
    TODO: We might also want to mandate that the group includes
    credentials of guest DSs involved in the group.  However, for them to
    be able to send proposals, we'd need an additional operation/endpoint
    that the DS exposes.
 
-   TODO: Details of the DS credential.  A BasicCredential with the FQDN
-   of the DS would probably be sufficient.
+   TODO: Details of the DS credential, distribution, etc.  A
+   BasicCredential with the FQDN of the DS would probably be sufficient.
 
    The DS can simply create such proposals itself based on the group
    information and distribute it to all group members via regular
    DSFanoutRequests.
 
-9.1.  Client removals
+8.1.  Client removals
 
    The DS can propose that one or more clients be removed from a given
    group.  To that end, it issues a remove proposal for each client it
    wants removed, where each remove proposal targets the leaf of one of
    the clients in question.
 
-9.2.  Client additions
+8.2.  Client additions
 
    The DS can propose that one or more clients be added to the group.
    It does so by issueing an add proposal for each client, where each
@@ -897,42 +754,27 @@ Alice                        Hub                       Guest DS            Bob
    another DS, we need an endpoint that allows DSs to fetch KeyPackages
    from one-another.
 
-10.  Client-initiated operations
+9.  Client-initiated operations
 
    The DS supports a number of operations, each of which is represented
    by a variant of the DSRequestType enum and has its own request body.
 
    enum {
-     ds_request_group_id(0),
-     ds_create_group(1),
-     ds_delete_group(2),
-     ds_add_users(3),
-     ds_remove_users(4),
-     ds_add_clients(5),
-     ds_remove_clients(6),
-     ds_self_remove_client(7),
-     ds_update_client(8),
-     ds_external_join(9),
-     ds_send_message(10),
-     ds_signature_public_key(11),
-     ds_key_packages(12),
-     ds_connection_key_packages(13),
-     ds_re_initialize_group(14),
+     ds_delete_group,
+     ds_add_clients,
+     ds_remove_clients,
+     ds_self_remove_client,
+     ds_update_client,
+     ds_external_join,
+     ds_send_message,
+     ds_key_packages,
    } DSRequestType;
 
    struct {
      DSRequestType request_type;
      select (DSRequestBody.request_type) {
-       case ds_request_group_id:
-         struct {};
-       case ds_create_group:
-         CreateGroupRequest create_group_request;
        case ds_delete_group:
          DeleteGroupRequest delete_group_request;
-       case ds_add_users:
-         AddUsersRequest add_users_request;
-       case ds_remove_users:
-         RemoveUsersRequest remove_users_request;
        case ds_add_clients:
          AddClientsRequest add_clients_request;
        case ds_remove_clients:
@@ -945,18 +787,12 @@ Alice                        Hub                       Guest DS            Bob
          ExternalJoinRequest external_join_request;
        case ds_send_message:
          SendMessageRequest send_message_request;
-       case ds_signature_public_key:
-         struct {};
        case ds_key_packages:
          KeyPackagesRequest key_packages_request;
-       case ds_connection_key_packages:
-         ConnectionKeyPackagesRequest connection_key_packages_request;
-       case ds_re_initialize_group:
-         ReInitializeGroupRequest re_initialize_group_request;
      }
    } DSRequestBody;
 
-10.1.  Request group id
+9.1.  Request group id
 
    Clients can use this operation to request a group id.  This group ID
    can subsequently used to create a group on this DS.
@@ -964,47 +800,7 @@ Alice                        Hub                       Guest DS            Bob
    After receiving this request, the DS generates a unique group id and
    responds with a DSResponse struct of type GroupID.
 
-10.2.  Create group
-
-   A request from the client to create a new group on the Delivery
-   Service.  This operation can be used both for the creation of regular
-   groups and for the creation of connection groups.
-
-   The client sends the following CreateGroupRequest to the Delivery
-   Service:
-
-   struct {
-     opaque group_id<V>;
-     LeafNode LeafNode;
-     MLSMessage group_info;
-   } CreateGroupRequest;
-
-   The Delivery Service internally creates and stores the group based on
-   the information in the request and responds with a
-   CreateGroupResponse:
-
-   enum {
-     invalid_group_id(0),
-     invalid_leaf_node(1),
-     invalid_group_info(2),
-   } CreateGroupResponse;
-
-   TODO: How to mark connection groups?  Have the creator include a
-   connection extension in the LeafNode?
-
-   *Validation:*
-
-   The Delivery Service validates the request as follows:
-
-   *  The group ID MUST NOT be not empty and MUST NOT already be in use.
-
-   *  The LeafNode MUST be valid, according to [I-D.ietf-mls-protocol]
-      7.3.  Leaf Node validation.
-
-   *  The GroupInfo MUST be valid, according to [I-D.ietf-mls-protocol]
-      12.4.3.  Adding Members to the Group.
-
-10.3.  Delete group
+9.2.  Delete group
 
    A request from the client to delete a group from the Delivery
    Service.  This operation allows clients to delete a group from the
@@ -1023,66 +819,10 @@ Alice                        Hub                       Guest DS            Bob
       contains Remove proposals for every member of the group except the
       committer.
 
-10.4.  Add users to a group
+9.3.  Add clients to a group
 
-   A request from a client to add one or more users to a group.  For
-   each user, one or more of the user's clients are added to the group.
-   The Welcome messages in the request are then fanned out to the user's
-   DSs.
-
-   To obtain the KeyPackages required to add the users' clients, the
-   sender must first fetch the clients' KeyPackages from their DS.
-
-   struct {
-     MLSGroupUpdate group_update;
-     MLSMessage welcome_messages<V>;
-   } AddUsersRequest;
-
-   *Validation:*
-
-   *  The MLSGroupUpdate in the commit field MUST contain a
-      PublicMessage with a commit that contains only Add proposals with
-      the possible exception of Remove proposals as detailed in
-      Section 8.
-
-   *  The commit MUST NOT change the sender's client credential.
-
-   *  Add proposals MUST NOT contain clients of existing group members.
-
-   *  Add proposals MUST NOT contain connection KeyPackages, except if
-      the group is a connection group.
-
-   *  If guest users are added as part of the request, there MUST be a
-      distinct Welcome message for each guest DS involved.
-
-   *  All KeyPackages included in Add proposals MUST include a
-      FanoutAuth extension.
-
-10.5.  Remove users from a group
-
-   A request from a client to remove one or more users from a group.
-   The DS will still fan out the request to the users.  The commit
-   contained in the message will allow the users to recognize that they
-   were removed.
-
-   struct {
-     MLSGroupUpdate group_update;
-   } RemoveUsersRequest;
-
-   *Validation:*
-
-   *  The MLSGroupUpdate MUST contain a PublicMessage with a commit that
-      contains only Remove proposals (see also Section 8).
-
-   *  The commit MUST NOT change the sender's client credential.
-
-   *  The Remove proposals that are committed by-value MUST always
-      remove all clients of one or more users.
-
-10.6.  Add clients to a group
-
-   A request from a client to add one or more clients of the same user.
-   This operation allows users to add new clients to an existing group.
+   A request from a client to add one or more clients.  This operation
+   allows clients to add other clients to an existing group.
    Alternatively, new clients can add themselves by joining via external
    commit.
 
@@ -1099,19 +839,15 @@ Alice                        Hub                       Guest DS            Bob
 
    *  The commit MUST NOT change the sender's client credential.
 
-   *  All Add proposals MUST contain clients of the same user as an
-      existing group member.
-
    *  All KeyPackages included in Add proposals MUST include a
       FanoutAuth extension.
 
-10.7.  Remove clients from a group
+9.4.  Remove clients from a group
 
-   A request from a client to remove one or more other clients of the
-   same user from a group.  This operation allows users to remove their
-   own clients from a group.  Note that this operation cannot be used by
-   a client to remove itself from the group.  For that purpose, the
-   SelfRemoveClientRequest should be used instead.
+   A request from a client to remove one or more other clients.  Note
+   that this operation cannot be used by a client to remove itself from
+   the group.  For that purpose, the SelfRemoveClientRequest should be
+   used instead.
 
    struct {
      MLSGroupUpdate group_update;
@@ -1124,16 +860,12 @@ Alice                        Hub                       Guest DS            Bob
 
    *  The commit MUST NOT change the sender's client credential.
 
-   *  All Remove proposals committed to by-value MUST target clients of
-      the same user as the sending client
+9.5.  Self remove a client from a group
 
-10.8.  Self remove a client from a group
-
-   A request from a client to remove itself from the group.  If it's the
-   last client of a user, this effectively removes the user from the
-   group.  Note that this request only contains a proposal, so the
-   client is not effectively removed from the group until another group
-   member commits that proposal.  See Section 8 for more details.
+   A request from a client to remove itself from the group.  Note that
+   this request only contains a proposal, so the client is not
+   effectively removed from the group until another group member commits
+   that proposal.  See Section 8 for more details.
 
    struct {
      MLSMessage proposal;
@@ -1146,7 +878,7 @@ Alice                        Hub                       Guest DS            Bob
 
    *  The Remove proposal MUST target the sending client.
 
-10.9.  Update a client in a group
+9.6.  Update a client in a group
 
    A request from a client to update its own leaf in an MLS group.  This
    operation can be used to update any information in the sender's leaf
@@ -1174,12 +906,11 @@ Alice                        Hub                       Guest DS            Bob
    method to judge if a new credential is a valid update to an existing
    one.
 
-10.10.  Join the group using an external commit
+9.7.  Join the group using an external commit
 
    A request from a client to join a group using an external commit,
    i.e. without the help of an existing group member.  This operation
-   can be used, for example, by new clients of a user that already has
-   clients in the group, or by existing group members that have to
+   can be used, for example, by existing group members that have to
    recover from state loss.
 
    To retrieve the information necessary to create the external commit,
@@ -1194,10 +925,7 @@ Alice                        Hub                       Guest DS            Bob
    *  The MLSGroupUpdate MUST contain a PublicMessage that contains a
       commit with sender type NewMemberCommit.
 
-   *  The sender of the ExternalJoinRequest MUST be a client that
-      belongs to a user that is already in the group.
-
-10.11.  Send an application message to a group
+9.8.  Send an application message to a group
 
    A request from a client to fan out an application message to a group.
    This operation is meant to send arbitrary data to the rest of the
@@ -1214,19 +942,7 @@ Alice                        Hub                       Guest DS            Bob
    *  The MLSMessage MUST contain a PrivateMessage with ContentType
       application.
 
-10.12.  Fetch the DS' signature public key
-
-   A request from a remote DS to retrieve the signature public key of
-   this DS.  The signature public key can be used by other DSs to verify
-   DSFanoutRequests sent by the DS.  While the DS also uses its
-   signature private key to sign proposals (see Section 8), clients
-   should use the signature key included in the group's external_senders
-   extension to validate those.
-
-   The DS responds with a DSResponse of type SignaturePublicKey that
-   contains the signature public key of this DS.
-
-10.13.  Fetch KeyPackages of one or more clients
+9.9.  Fetch KeyPackages of one or more clients
 
    A request from a client to retrieve the KeyPackage(s) of one or more
    clients of this DS.  KeyPackages are required to add other clients
@@ -1244,38 +960,12 @@ Alice                        Hub                       Guest DS            Bob
    *  All client identifiers MUST refer to clients native to this DS.
 
    *  The DS SHOULD verify that the sender of the request is authorized
-      to retrieve the DSKeyPackages of the clients in question.  For
-      example, it could check if the user of the sending client has a
-      connection with the user of the target client(s).
+      to retrieve the DSKeyPackages of the clients in question.
 
-10.14.  Fetch connection KeyPackages of one or more clients
-
-   A request from a client to retrieve the KeyPackage(s) of all clients
-   of a user of this DS.  KeyPackages obtained via this operation can
-   only be used to add clients to a connection group.
-
-   Connection KeyPackages are available separately from regular
-   KeyPackages, as they are meant to be accessed by clients of users
-   with which the owning user has no connection.
-
-   struct {
-     UserID user_identifier;
-   } ConnectionKeyPackagesRequest;
-
-   The DS responds with connection KeyPackages of all clients of the
-   user corresponding to the identifier in the request.
-
-   *Validation:*
-
-   *  All client identifiers MUST refer to clients native to this DS.
-
-   *  All clients referred to by the identifiers MUST belong to the same
-      user.
-
-10.15.  ReInitialize a group
+9.10.  ReInitialize a group
 
    A request from a client to re-initialize a group with different
-   parameters as outlined in Section 3.11.
+   parameters as outlined in Section 4.8.
 
    struct {
      MLSGroupUpdate commit;
@@ -1290,79 +980,15 @@ Alice                        Hub                       Guest DS            Bob
       this hub, which has a MIMI DS protocol version that is greater or
       equal than this group.
 
-11.  DSFanoutRequests and DS-to-DS authentication
+10.  DSFanoutRequests
 
    After the DS has processed an incoming MLSMessage, it prepares a
-   DSFanoutRequest as described in Section 5.
+   DSFanoutRequest as described in Section 6.
 
-   To authenticate these messages, an additional layer of DS-to-DS
-   authentication is required.  As defined in Section 5,
-   DSFanoutRequests are signed using signing key of the sending DS.  The
-   receiving DS can obtain the corresponding signature public key by
-   sending a DSRequest to the sender indicated in the DSFanoutRequest.
+   For DS to DS communication, the MIMI DS protocol relies on the
+   underlying transport protocol to provide mutual authentication.
 
-   The request for the signature public key MUST be sent via an HTTPS
-   secured channel, or otherwise authenticated using a root of trust
-   present on the DS.
-
-   TODO: If the transport provides server-to-server authentication this
-   section and the signature on the DSFanoutRequest can be removed.
-   TODO: Details on key management, caching etc.  We can probably get
-   away with using very small lifetimes for these keys, as they can be
-   re-fetched cheaply and essentially at any time.
-
-12.  Role-based access control in groups
-
-   TODO: Access control is beyond the charter.  However, to show how
-   easily implementable it is with MLS, this is section sketches a
-   possible MLS extension to handle access control in groups that is
-   enforcible and verifiable by both clients and DS.  It is just an
-   example and details can be changed later.
-
-   As group operations are handled by MLS PublicMessages, the DS can
-   enforce access control policies on groups.  The privileges of clients
-   in a group are determined by the group's RBAC GroupContext Extension.
-
-   struct {
-     uint32 admins<V>;
-   } RBACExtension
-
-   The RBACExtension supports two roles: Members and Admins.  Since all
-   group members are Members by default, the extension only lists
-   admins.
-
-   Any client the leaf node index of which is listed in the admins field
-   of the RBACExtension in a given group is considered as an Admin role
-   and allowed to perform the following operations in the context of
-   this group.
-
-   *  AddUsers, RemoveUsers, DeleteGroup, SetRole
-
-   The SetRole operation is an additional operation available to groups
-   that have an RBACExtension.
-
-   struct {
-     MLSGroupUpdate group_update;
-   } SetRoleRequest
-
-   The group_update needs to contain a commit which commits to a single
-   RBACProposal.
-
-   struct {
-     uint32 promoted_members;
-     uint32 demoted_members;
-   } SetRole
-
-   The DS (and all clients) process this proposal by changing the role
-   of the group members with the leaf indices listed in the
-   promoted_members and demoted_members fields and change the admins
-   field of the group's RBACExtension accordingly.  For example, if the
-   leaf index admin is listed in the changed_members field of the
-   proposal, it is demoted to Member and removed from the admins field.
-   Similarly, if a Member is listed, it is promoted to Admin and added
-   to the admins field.
-
-13.  Rate-limiting and spam prevention
+11.  Rate-limiting and spam prevention
 
    All requests (with the exception of the VerificationKeyRequest) can
    be explicitly authenticated by the recipient through the verification
@@ -1370,8 +996,8 @@ Alice                        Hub                       Guest DS            Bob
    limiting strategy of their choice based on the sender's identity.
 
    For DSRequests, the DS can rate-limit on a per group-level, per-DS
-   level (reducing the messages from all clients or users belonging to a
-   single DS), or even based on individual clients or users.
+   level (reducing the messages from all clients belonging to a single
+   DS), or even based on individual clients.
 
    For DSFanoutRequests, rate-limiting or blocking can happen based on
    the identity of the sending DS, or it can happen on a per-group
@@ -1379,22 +1005,22 @@ Alice                        Hub                       Guest DS            Bob
    group.
 
    Such rate-limiting can happen by decision of the DS itself, or on the
-   request of its local users.  For example, a user might wish to block
-   connection requests from one specific other user without blocking
-   connection requests from all other users of that DS.
+   request of its local clients.  For example, a client might wish to
+   block connection requests from one specific other client without
+   blocking connection requests from all other clients of that DS.
 
-14.  Abusive and illegal content
+12.  Abusive and illegal content
 
    As all application messages are encrypted, the DS has no way of
    analyzing their content for illegal or abusive content.  It may make
-   use of a message franking scheme to allow its users to report such
+   use of a message franking scheme to allow its clients to report such
    content, although this is beyond the scope of this document.
 
-   Additionally, in the same way as a DS might allow its users to block
-   certain messages from specific users in the context of spam
+   Additionally, in the same way as a DS might allow its clients to
+   block certain messages from specific clients in the context of spam
    prevention, it may do the same based on abusive or illegal content.
 
-15.  Security considerations
+13.  Security considerations
 
    TODO: There is currently no consensus in the MIMI w.r.t. the security
    goals we want to reach.
@@ -1402,7 +1028,7 @@ Alice                        Hub                       Guest DS            Bob
    The underlying MLS protocol provides end-to-end encryption and
    authentication for all MLSMessages, as well as group state agreement.
 
-15.1.  Transport Security
+13.1.  Transport Security
 
    Transport of DSFanoutRequests, as well as their responses MUST use a
    recipient authenticated transport.  This is to ensure that these
@@ -1411,7 +1037,7 @@ Alice                        Hub                       Guest DS            Bob
    To protect the metadata in all request-response flows, requests and
    responses SHOULD be secured using an encrypted transport channel.
 
-16.  Normative References
+14.  Normative References
 
    [I-D.ietf-mls-protocol]
               Barnes, R., Beurdouche, B., Robert, R., Millican, J.,
@@ -1421,9 +1047,18 @@ Alice                        Hub                       Guest DS            Bob
               <https://datatracker.ietf.org/doc/html/draft-ietf-mls-
               protocol-20>.
 
+   [RFC2181]  Elz, R. and R. Bush, "Clarifications to the DNS
+              Specification", RFC 2181, DOI 10.17487/RFC2181, July 1997,
+              <https://www.rfc-editor.org/rfc/rfc2181>.
+
    [RFC8446]  Rescorla, E., "The Transport Layer Security (TLS) Protocol
               Version 1.3", RFC 8446, DOI 10.17487/RFC8446, August 2018,
               <https://www.rfc-editor.org/rfc/rfc8446>.
+
+   [RFC9420]  Barnes, R., Beurdouche, B., Robert, R., Millican, J.,
+              Omara, E., and K. Cohn-Gordon, "The Messaging Layer
+              Security (MLS) Protocol", RFC 9420, DOI 10.17487/RFC9420,
+              July 2023, <https://www.rfc-editor.org/rfc/rfc9420>.
 
 Authors' Addresses
 

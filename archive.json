@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2023-10-22T00:07:32.002186+00:00",
+  "timestamp": "2023-10-24T00:06:37.565642+00:00",
   "repo": "raphaelrobert/mimi-delivery-service",
   "labels": [
     {
@@ -538,6 +538,36 @@
           "comments": []
         }
       ]
+    },
+    {
+      "number": 13,
+      "id": "PR_kwDOIYehyc5djCYQ",
+      "title": "Strip the user notion",
+      "url": "https://github.com/raphaelrobert/mimi-delivery-service/pull/13",
+      "state": "MERGED",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [
+        "kkohbrok"
+      ],
+      "labels": [],
+      "body": "",
+      "createdAt": "2023-10-23T15:51:13Z",
+      "updatedAt": "2023-10-23T16:29:54Z",
+      "baseRepository": "raphaelrobert/mimi-delivery-service",
+      "baseRefName": "main",
+      "baseRefOid": "71a415cdc6e6375920b5dfcd7984aca9c71c1318",
+      "headRepository": "raphaelrobert/mimi-delivery-service",
+      "headRefName": "konrad/strip_stuff",
+      "headRefOid": "8befa408af7c742e955956e2beede070b82d1e94",
+      "closedAt": "2023-10-23T16:29:54Z",
+      "mergedAt": "2023-10-23T16:29:54Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "6414b4072010f222349d15187856769408fb0308"
+      },
+      "comments": [],
+      "reviews": []
     }
   ]
 }

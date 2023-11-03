@@ -97,8 +97,8 @@ clients.
 Group members and external senders can send send proposals to the group. Valid
 proposals include any proposals in {{!RFC9420}}:
 
-* Add proposals (to add new group members) 
-* Remove proposals (to remove existing group members) 
+* Add proposals (to add new group members)
+* Remove proposals (to remove existing group members)
 * Update proposals (to update a group members's key material)
 * PSK proposals (to inject additional key material into the group)
 * Re-Init proposals (to re-initialize the group, e.g. with a new ciphersuite)
@@ -690,8 +690,8 @@ struct {
 
 The Delivery Service validates the request as follows:
 
- * The MLSGroupUpdate MUST contain a PublicMessage with a commit that contains
-   Remove proposals for every member of the group except the committer.
+* The MLSGroupUpdate MUST contain a PublicMessage with a commit that contains
+  Remove proposals for every member of the group except the committer.
 
 ## Propose group state changes
 

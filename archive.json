@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2023-11-02T00:06:56.973437+00:00",
+  "timestamp": "2023-11-05T00:07:29.239308+00:00",
   "repo": "raphaelrobert/mimi-delivery-service",
   "labels": [
     {
@@ -568,6 +568,67 @@
       },
       "comments": [],
       "reviews": []
+    },
+    {
+      "number": 14,
+      "id": "PR_kwDOIYehyc5egdno",
+      "title": "Move to proposal-commit logic",
+      "url": "https://github.com/raphaelrobert/mimi-delivery-service/pull/14",
+      "state": "OPEN",
+      "author": "kkohbrok",
+      "authorAssociation": "COLLABORATOR",
+      "assignees": [
+        "kkohbrok"
+      ],
+      "labels": [],
+      "body": "",
+      "createdAt": "2023-11-03T08:09:33Z",
+      "updatedAt": "2023-11-03T14:04:25Z",
+      "baseRepository": "raphaelrobert/mimi-delivery-service",
+      "baseRefName": "main",
+      "baseRefOid": "6414b4072010f222349d15187856769408fb0308",
+      "headRepository": "raphaelrobert/mimi-delivery-service",
+      "headRefName": "konrad/proposal_commit",
+      "headRefOid": "58d993f0e6e29833ed8ecbc2ac759543fe54ce56",
+      "closedAt": null,
+      "mergedAt": null,
+      "mergedBy": null,
+      "mergeCommit": null,
+      "comments": [],
+      "reviews": [
+        {
+          "id": "PRR_kwDOIYehyc5mFpM9",
+          "commit": {
+            "abbreviatedOid": "58d993f"
+          },
+          "author": "raphaelrobert",
+          "authorAssociation": "OWNER",
+          "state": "COMMENTED",
+          "body": "Looks good in general, just some nits",
+          "createdAt": "2023-11-03T14:01:11Z",
+          "updatedAt": "2023-11-03T14:04:25Z",
+          "comments": [
+            {
+              "originalPosition": 42,
+              "body": "Don't we want to allow any kind of proposal as long as it is supported by the group?",
+              "createdAt": "2023-11-03T14:01:11Z",
+              "updatedAt": "2023-11-03T14:04:25Z"
+            },
+            {
+              "originalPosition": 71,
+              "body": "```suggestion\r\nGroup members can send an external commit to re-join the group (e.g. if they\r\n```",
+              "createdAt": "2023-11-03T14:02:01Z",
+              "updatedAt": "2023-11-03T14:04:25Z"
+            },
+            {
+              "originalPosition": 349,
+              "body": "Maybe MUST?",
+              "createdAt": "2023-11-03T14:04:12Z",
+              "updatedAt": "2023-11-03T14:04:25Z"
+            }
+          ]
+        }
+      ]
     }
   ]
 }

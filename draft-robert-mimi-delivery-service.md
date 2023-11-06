@@ -118,7 +118,7 @@ above), as well as application messages.
 Clients that are not group members can send an (external) commit to add
 themselves to a group.
 
-Group members can send an (external) commit to re-join the group (e.g. if they
+Group members can send an external commit to re-join the group (e.g. if they
 have previously lost state, or their group state was corrupted).
 
 The DS will verify all proposals, commits and application messages as described

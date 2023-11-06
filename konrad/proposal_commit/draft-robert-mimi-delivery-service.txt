@@ -167,7 +167,9 @@ Table of Contents
    members to add new group members) of the DS' clients.
 
    Group members and external senders can send send proposals to the
-   group.  Valid proposals include any proposals in [RFC9420]:
+   group.  The MIMI DS protocol supports any MLS proposal supported by
+   the specific group in question.  The proposals specified in [RFC9420]
+   provide the baseline operations:
 
    *  Add proposals (to add new group members)
 
@@ -870,8 +872,8 @@ Client           Hub                               Guest Delivery Service
 
    *Validation:*
 
-   *  The DS SHOULD verify that the sender of the request is authorized
-      to retrieve the group's GroupInfo.
+   *  The DS MUST verify that the sender of the request is authorized to
+      retrieve the group's GroupInfo.
 
 10.  DSFanoutRequests
 

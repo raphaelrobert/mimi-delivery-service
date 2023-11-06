@@ -1323,8 +1323,10 @@ the current group information (an MLS GroupInfo, required for clients to join
 the group without the help of a group member) or request key material (MLS
 KeyPackages, required by group members to add new group members) of the DS'
 clients.<a href="#section-3-3" class="pilcrow">¶</a></p>
-<p id="section-3-4">Group members and external senders can send send proposals to the group. Valid
-proposals include any proposals in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span>:<a href="#section-3-4" class="pilcrow">¶</a></p>
+<p id="section-3-4">Group members and external senders can send send proposals to the group. The
+MIMI DS protocol supports any MLS proposal supported by the specific group in
+question. The proposals specified in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> provide the baseline
+operations:<a href="#section-3-4" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-3-5.1">
           <p id="section-3-5.1.1">Add proposals (to add new group members)<a href="#section-3-5.1.1" class="pilcrow">¶</a></p>
@@ -2149,7 +2151,7 @@ struct {} GroupInfoRequest;
 <p id="section-9.6-4"><strong>Validation:</strong><a href="#section-9.6-4" class="pilcrow">¶</a></p>
 <ul class="normal">
 <li class="normal" id="section-9.6-5.1">
-            <p id="section-9.6-5.1.1">The DS SHOULD verify that the sender of the request is authorized to retrieve
+            <p id="section-9.6-5.1.1">The DS MUST verify that the sender of the request is authorized to retrieve
 the group's GroupInfo.<a href="#section-9.6-5.1.1" class="pilcrow">¶</a></p>
 </li>
         </ul>

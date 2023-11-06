@@ -5,7 +5,7 @@
 Network Working Group                                          R. Robert
 Internet-Draft                                                K. Kohbrok
 Intended status: Informational                               Phoenix R&D
-Expires: 25 April 2024                                   23 October 2023
+Expires: 9 May 2024                                      6 November 2023
 
 
                          MIMI Delivery Service
@@ -30,7 +30,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 25 April 2024.
+   This Internet-Draft will expire on 9 May 2024.
 
 Copyright Notice
 
@@ -67,25 +67,18 @@ Table of Contents
      6.2.  Server to server requests
    7.  DS assisted joining
    8.  Proposals and DS-initiated operations
-     8.1.  Client removals
-     8.2.  Client additions
    9.  Client-initiated operations
-     9.1.  Request group id
-     9.2.  Delete group
-     9.3.  Add clients to a group
-     9.4.  Remove clients from a group
-     9.5.  Self remove a client from a group
-     9.6.  Update a client in a group
-     9.7.  Join the group using an external commit
-     9.8.  Send an application message to a group
-     9.9.  Fetch KeyPackages of one or more clients
-     9.10. ReInitialize a group
+     9.1.  Delete group
+     9.2.  Propose group state changes
+     9.3.  Commit group state changes
+     9.4.  Send application messages to a group
+     9.5.  Fetch KeyPackages of one or more clients
+     9.6.  Fetch group information
    10. DSFanoutRequests
    11. Rate-limiting and spam prevention
-   12. Abusive and illegal content
-   13. Security considerations
-     13.1.  Transport Security
-   14. Normative References
+   12. Security considerations
+     12.1.  Transport Security
+   13. Normative References
    Authors' Addresses
 
 1.  Introduction
@@ -155,60 +148,59 @@ Table of Contents
 
 3.  Interfaces
 
+   The MIMI DS protocol inherits the proposal-commit logic from MLS.
+   Any party that is either a group member, or that was added as an
+   external sender can propose changes to the group such as the
+   addition, removal, or update of clients.  Group members can then
+   change the group state in a commit operation.  A commit MUST include
+   all valid previously received proposals, as well as any valid
+   proposals that the committing client wants to add to the commit.
+
    The MIMI DS tracks the state of individual MLS groups on a hub by
-   processing group operations.  The MIMI DS can process the following
-   requests originating from clients:
+   storing proposals and processing commits.
 
-   *  Add clients to a group
+   Any party (including group members and external senders) can send
+   requests for the current group information (an MLS GroupInfo,
+   required for clients to join the group without the help of a group
+   member) or request key material (MLS KeyPackages, required by group
+   members to add new group members) of the DS' clients.
 
-   *  Inject the sending client into a group (external join)
+   Group members and external senders can send proposals to the group.
+   The MIMI DS protocol supports any MLS proposal supported by the
+   specific group in question.  The proposals specified in [RFC9420]
+   provide the baseline operations:
 
-   *  Remove clients from a group
+   *  Add proposals (to add new group members)
 
-   *  Updates their MLS key material
+   *  Remove proposals (to remove existing group members)
 
-   *  Send application messages
+   *  Update proposals (to update a group members's key material)
 
-   TODO: This list will either grow longer if we want to keep distinct
-   operations, or shorter, if we don't.  In the latter case, we'll need
-   more extensive commit validation.
+   *  PSK proposals (to inject additional key material into the group)
 
-   Follower servers can send requests the following:
+   *  Re-Init proposals (to re-initialize the group, e.g. with a new
+      ciphersuite)
 
-   *  Retrieve the group state required for a client to (re-)join a
-      group
+   *  Group Context Extensions (to modify data in GroupContext
+      Extensions, e.g. to add/remove/update external senders)
 
-   *  Retrieve KeyPackages for one or more client associated with this
-      DS
+   TODO: We might want to allow non-group members to propose adding
+   themselves (NewMemberProposal).
 
-   *  Propose adding a client to a group
+   Additional proposals may be added via MLS' extension mechanism.
 
-   *  Propose removing a client from a group
+   Group members can send commits (which can include any of the
+   proposals listed above), as well as application messages.
 
-   *  Propose re-initializing of a group
+   Clients that are not group members can send an (external) commit to
+   add themselves to a group.
 
-   TODO: Probably more proposals.
+   Group members can send an external commit to re-join the group (e.g.
+   if they have previously lost state, or their group state was
+   corrupted).
 
-   Regardless if a request came from a client or a follower server, the
-   MIMI DS will process in two steps: Staging and merging.  The first
-   step consists of authentication and validation checks, after which
-   the MIMI DS stages the changes to the group state that result from
-   the requested operation.  In a second step, the MIMI DS merges the
-   staged changes into the MLS group state.
-
-   Locally, the MIMI DS thus provides the following interface:
-
-   *  Provide a Membership list (and associated metadata)
-
-   *  Process a query from a client and stage the corresponding changes
-
-   *  Process a query from a follower server and stage the corresponding
-      changes
-
-   *  Merge the changes resulting from a previously processed query
-
-   Naturally, the local interface allows the same operations as for
-   follower servers.
+   The DS will verify all proposals, commits and application messages as
+   described in [RFC9420] and fan them out to the rest of the group.
 
 4.  Architecture and protocol overview
 
@@ -483,14 +475,14 @@ Client           Hub                               Guest Delivery Service
    request.
 
    enum {
-     Anonymous,
+     Unauthenticated,
      ClientSignature,
    } DSAuthType;
 
    struct {
      DSAuthType auth_type;
      select (DSAuthData.auth_type) {
-       case Anonymous:
+       case Unauthenticated:
          struct {};
        case ClientSignature:
          uint32 sender_index;
@@ -737,23 +729,6 @@ Client           Hub                               Guest Delivery Service
    information and distribute it to all group members via regular
    DSFanoutRequests.
 
-8.1.  Client removals
-
-   The DS can propose that one or more clients be removed from a given
-   group.  To that end, it issues a remove proposal for each client it
-   wants removed, where each remove proposal targets the leaf of one of
-   the clients in question.
-
-8.2.  Client additions
-
-   The DS can propose that one or more clients be added to the group.
-   It does so by issueing an add proposal for each client, where each
-   add proposal contains a KeyPackage of the respective client.
-
-   TODO: If the DS should be allowed to add clients that belong to
-   another DS, we need an endpoint that allows DSs to fetch KeyPackages
-   from one-another.
-
 9.  Client-initiated operations
 
    The DS supports a number of operations, each of which is represented
@@ -761,13 +736,11 @@ Client           Hub                               Guest Delivery Service
 
    enum {
      ds_delete_group,
-     ds_add_clients,
-     ds_remove_clients,
-     ds_self_remove_client,
-     ds_update_client,
-     ds_external_join,
+     ds_proposals,
+     ds_commits,
      ds_send_message,
      ds_key_packages,
+     ds_group_info,
    } DSRequestType;
 
    struct {
@@ -775,32 +748,20 @@ Client           Hub                               Guest Delivery Service
      select (DSRequestBody.request_type) {
        case ds_delete_group:
          DeleteGroupRequest delete_group_request;
-       case ds_add_clients:
-         AddClientsRequest add_clients_request;
-       case ds_remove_clients:
-         RemoveClientsRequest remove_clients_request;
-       case ds_self_remove_clients:
-         SelfRemoveClientsRequest self_remove_clients_request;
-       case ds_update_client:
-         UpdateClientRequest update_client_request;
-       case ds_external_join:
-         ExternalJoinRequest external_join_request;
+       case ds_proposals:
+         ProposalRequest proposal_request;
+       case ds_commits:
+         CommitRequest commit_request;
        case ds_send_message:
          SendMessageRequest send_message_request;
        case ds_key_packages:
          KeyPackagesRequest key_packages_request;
+       case ds_key_packages:
+         GroupInfoRequest group_info_request;
      }
    } DSRequestBody;
 
-9.1.  Request group id
-
-   Clients can use this operation to request a group id.  This group ID
-   can subsequently used to create a group on this DS.
-
-   After receiving this request, the DS generates a unique group id and
-   responds with a DSResponse struct of type GroupID.
-
-9.2.  Delete group
+9.1.  Delete group
 
    A request from the client to delete a group from the Delivery
    Service.  This operation allows clients to delete a group from the
@@ -819,130 +780,66 @@ Client           Hub                               Guest Delivery Service
       contains Remove proposals for every member of the group except the
       committer.
 
-9.3.  Add clients to a group
+9.2.  Propose group state changes
 
-   A request from a client to add one or more clients.  This operation
-   allows clients to add other clients to an existing group.
-   Alternatively, new clients can add themselves by joining via external
-   commit.
+   A request from a client or an external sender to propose one ore more
+   changes to the group state.  Each change is encoded as an MLS
+   proposal.
 
    struct {
-     MLSGroupUpdate group_update;
-     MLSMessage welcome_messages<V>;
+     MLSMessage proposals<V>;
    } AddClientsRequest;
 
    *Validation:*
 
-   *  The MLSGroupUpdate MUST contain a PublicMessage with a commit that
-      contains only Add proposals with the possible exception of Remove
-      proposals as detailed in Section 8.
+   *  The MLSMessages MUST contain PublicMessages with proposals.
 
-   *  The commit MUST NOT change the sender's client credential.
+   *  All proposals MUST be valid according to [RFC9420].
 
-   *  All KeyPackages included in Add proposals MUST include a
-      FanoutAuth extension.
+9.3.  Commit group state changes
 
-9.4.  Remove clients from a group
+   A request from a client to change the group state via one or more
+   commits as proposed by previously sent proposals, or proposals
+   included in the commits.  Note that this operation cannot be used by
+   a group member to remove itself from the group.  Group members can
+   only propose their own removal and wait for another group member to
+   commit the change.
 
-   A request from a client to remove one or more other clients.  Note
-   that this operation cannot be used by a client to remove itself from
-   the group.  For that purpose, the SelfRemoveClientRequest should be
-   used instead.
+   Clients that are not yet group members can use a commit to add
+   themselves to a group.
+
+   Group members can re-add themselves to a group via a commit (e.g. in
+   case of lost group state).
 
    struct {
-     MLSGroupUpdate group_update;
+     MLSGroupUpdate group_updates<V>;
+     MLSMessage welcome_messages<V>;
    } RemoveClientsRequest;
 
    *Validation:*
 
-   *  The MLSGroupUpdate MUST contain a PublicMessage with a commit that
-      contains only Remove proposals.
+   *  The MLSGroupUpdates MUST contain PublicMessages that contain
+      commits.
 
-   *  The commit MUST NOT change the sender's client credential.
+9.4.  Send application messages to a group
 
-9.5.  Self remove a client from a group
-
-   A request from a client to remove itself from the group.  Note that
-   this request only contains a proposal, so the client is not
-   effectively removed from the group until another group member commits
-   that proposal.  See Section 8 for more details.
-
-   struct {
-     MLSMessage proposal;
-   } SelfRemoveClientRequest;
-
-   *Validation:*
-
-   *  The MLSMessage MUST contain a PublicMessage that contains a single
-      Remove proposal.
-
-   *  The Remove proposal MUST target the sending client.
-
-9.6.  Update a client in a group
-
-   A request from a client to update its own leaf in an MLS group.  This
-   operation can be used to update any information in the sender's leaf
-   node.  For example, the sender could use this operation to update its
-   key material to achieve post-compromise security, update its
-   Capabilities extension, or its leaf credential.
-
-   The sending client can also choose to send a FanoutAuthToken, which
-   the DS uses to replace the client's existing token.
+   A request from a client to fan out one or more application messages
+   to a group.  This operation is meant to send arbitrary data to the
+   rest of the group.  Since the application message is a
+   PrivateMessage, the DS can not verify its content or authenticate its
+   sender (even though it does authenticate the sender of the
+   surrounding DSRequest).
 
    struct {
-     MLSGroupUpdate group_update;
-     optional<FanoutAuthToken> token;
-   } UpdateClientRequest;
-
-   *Validation:*
-
-   *  The MLSGroupUpdate MUST contain a PublicMessage that contains a
-      commit with an UpdatePath, but no other proposals by value.
-
-   *  If the leaf credential is changed by the update, the DS MUST
-      validate the new credential.
-
-   TODO: The discussion around identity and credentials should yield a
-   method to judge if a new credential is a valid update to an existing
-   one.
-
-9.7.  Join the group using an external commit
-
-   A request from a client to join a group using an external commit,
-   i.e. without the help of an existing group member.  This operation
-   can be used, for example, by existing group members that have to
-   recover from state loss.
-
-   To retrieve the information necessary to create the external commit,
-   the joiner has to fetch the external commit information from the DS.
-
-   struct {
-     MLSGroupUpdate group_update;
-   } ExternalJoinRequest;
-
-   *Validation:*
-
-   *  The MLSGroupUpdate MUST contain a PublicMessage that contains a
-      commit with sender type NewMemberCommit.
-
-9.8.  Send an application message to a group
-
-   A request from a client to fan out an application message to a group.
-   This operation is meant to send arbitrary data to the rest of the
-   group.  Since the application message is a PrivateMessage, the DS can
-   not verify its content or authenticate its sender (even though it
-   does authenticate the sender of the surrounding DSRequest).
-
-   struct {
-     MLSMessage application_message;
+     MLSMessage application_message<V>;
    } SendMessageRequest;
 
    *Validation:*
 
-   *  The MLSMessage MUST contain a PrivateMessage with ContentType
+   *  The MLSMessages MUST contain PrivateMessages with ContentType
       application.
 
-9.9.  Fetch KeyPackages of one or more clients
+9.5.  Fetch KeyPackages of one or more clients
 
    A request from a client to retrieve the KeyPackage(s) of one or more
    clients of this DS.  KeyPackages are required to add other clients
@@ -962,23 +859,20 @@ Client           Hub                               Guest Delivery Service
    *  The DS SHOULD verify that the sender of the request is authorized
       to retrieve the DSKeyPackages of the clients in question.
 
-9.10.  ReInitialize a group
+9.6.  Fetch group information
 
-   A request from a client to re-initialize a group with different
-   parameters as outlined in Section 4.8.
+   A request from a client to retrieve the group's GroupInfo.
+   KeyPackages are required for clients to add themselves to a group via
+   a commit and for group members to re-add themselves to a group.
 
-   struct {
-     MLSGroupUpdate commit;
-   } ReInitializeGroupRequest;
+   struct {} GroupInfoRequest;
+
+   The DS responds with the group's current GroupInfo.
 
    *Validation:*
 
-   *  The MLSGroupUpdate MUST contain a PublicMessage that contains a
-      commit with a re-init proposal.
-
-   *  The GroupID in the re-init proposal MUST point to another group on
-      this hub, which has a MIMI DS protocol version that is greater or
-      equal than this group.
+   *  The DS MUST verify that the sender of the request is authorized to
+      retrieve the group's GroupInfo.
 
 10.  DSFanoutRequests
 
@@ -1009,18 +903,7 @@ Client           Hub                               Guest Delivery Service
    block connection requests from one specific other client without
    blocking connection requests from all other clients of that DS.
 
-12.  Abusive and illegal content
-
-   As all application messages are encrypted, the DS has no way of
-   analyzing their content for illegal or abusive content.  It may make
-   use of a message franking scheme to allow its clients to report such
-   content, although this is beyond the scope of this document.
-
-   Additionally, in the same way as a DS might allow its clients to
-   block certain messages from specific clients in the context of spam
-   prevention, it may do the same based on abusive or illegal content.
-
-13.  Security considerations
+12.  Security considerations
 
    TODO: There is currently no consensus in the MIMI w.r.t. the security
    goals we want to reach.
@@ -1028,7 +911,7 @@ Client           Hub                               Guest Delivery Service
    The underlying MLS protocol provides end-to-end encryption and
    authentication for all MLSMessages, as well as group state agreement.
 
-13.1.  Transport Security
+12.1.  Transport Security
 
    Transport of DSFanoutRequests, as well as their responses MUST use a
    recipient authenticated transport.  This is to ensure that these
@@ -1037,7 +920,7 @@ Client           Hub                               Guest Delivery Service
    To protect the metadata in all request-response flows, requests and
    responses SHOULD be secured using an encrypted transport channel.
 
-14.  Normative References
+13.  Normative References
 
    [I-D.ietf-mls-protocol]
               Barnes, R., Beurdouche, B., Robert, R., Millican, J.,

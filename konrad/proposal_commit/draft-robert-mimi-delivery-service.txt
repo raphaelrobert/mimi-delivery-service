@@ -5,7 +5,7 @@
 Network Working Group                                          R. Robert
 Internet-Draft                                                K. Kohbrok
 Intended status: Informational                               Phoenix R&D
-Expires: 6 May 2024                                      3 November 2023
+Expires: 9 May 2024                                      6 November 2023
 
 
                          MIMI Delivery Service
@@ -30,7 +30,7 @@ Status of This Memo
    time.  It is inappropriate to use Internet-Drafts as reference
    material or to cite them other than as "work in progress."
 
-   This Internet-Draft will expire on 6 May 2024.
+   This Internet-Draft will expire on 9 May 2024.
 
 Copyright Notice
 
@@ -194,8 +194,8 @@ Table of Contents
    Clients that are not group members can send an (external) commit to
    add themselves to a group.
 
-   Group members can send an (external) commit to re-join the group
-   (e.g. if they have previously lost state, or their group state was
+   Group members can send an external commit to re-join the group (e.g.
+   if they have previously lost state, or their group state was
    corrupted).
 
    The DS will verify all proposals, commits and application messages as

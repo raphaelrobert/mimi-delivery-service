@@ -94,8 +94,10 @@ the group without the help of a group member) or request key material (MLS
 KeyPackages, required by group members to add new group members) of the DS'
 clients.
 
-Group members and external senders can send send proposals to the group. Valid
-proposals include any proposals in {{!RFC9420}}:
+Group members and external senders can send send proposals to the group. The
+MIMI DS protocol supports any MLS proposal supported by the specific group in
+question. The proposals specified in {{!RFC9420}} provide the baseline
+operations:
 
 * Add proposals (to add new group members)
 * Remove proposals (to remove existing group members)
@@ -786,7 +788,7 @@ The DS responds with the group's current GroupInfo.
 
 **Validation:**
 
-* The DS SHOULD verify that the sender of the request is authorized to retrieve
+* The DS MUST verify that the sender of the request is authorized to retrieve
   the group's GroupInfo.
 
 # DSFanoutRequests

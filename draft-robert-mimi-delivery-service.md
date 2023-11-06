@@ -79,7 +79,7 @@ TODO: client identifiers definitions are preliminary.
 # Interfaces
 
 The MIMI DS protocol inherits the proposal-commit logic from MLS. Any party that
-is either a group member, or that as added as an external sender can propose
+is either a group member, or that was added as an external sender can propose
 changes to the group such as the addition, removal, or update of clients. Group
 members can then change the group state in a commit operation. A commit MUST
 include all valid previously received proposals, as well as any valid proposals
@@ -94,7 +94,7 @@ the group without the help of a group member) or request key material (MLS
 KeyPackages, required by group members to add new group members) of the DS'
 clients.
 
-Group members and external senders can send send proposals to the group. The
+Group members and external senders can send proposals to the group. The
 MIMI DS protocol supports any MLS proposal supported by the specific group in
 question. The proposals specified in {{!RFC9420}} provide the baseline
 operations:
@@ -391,14 +391,14 @@ contains the data necessary for the DS to authenticate the request.
 
 ~~~ tls
 enum {
-  Anonymous,
+  Unauthenticated,
   ClientSignature,
 } DSAuthType;
 
 struct {
   DSAuthType auth_type;
   select (DSAuthData.auth_type) {
-    case Anonymous:
+    case Unauthenticated:
       struct {};
     case ClientSignature:
       uint32 sender_index;
@@ -703,7 +703,6 @@ the group state. Each change is encoded as an MLS proposal.
 ~~~ tls
 struct {
   MLSMessage proposals<V>;
-  MLSMessage welcome_messages<V>;
 } AddClientsRequest;
 ~~~
 
@@ -729,6 +728,7 @@ lost group state).
 ~~~ tls
 struct {
   MLSGroupUpdate group_updates<V>;
+  MLSMessage welcome_messages<V>;
 } RemoveClientsRequest;
 ~~~
 
@@ -818,17 +818,6 @@ Such rate-limiting can happen by decision of the DS itself, or on the request of
 its local clients. For example, a client might wish to block connection requests
 from one specific other client without blocking connection requests from all other
 clients of that DS.
-
-# Abusive and illegal content
-
-As all application messages are encrypted, the DS has no way of analyzing their
-content for illegal or abusive content. It may make use of a message franking
-scheme to allow its clients to report such content, although this is beyond the
-scope of this document.
-
-Additionally, in the same way as a DS might allow its clients to block certain
-messages from specific clients in the context of spam prevention, it may do the
-same based on abusive or illegal content.
 
 # Security considerations
 

@@ -76,10 +76,9 @@ Table of Contents
      9.6.  Fetch group information
    10. DSFanoutRequests
    11. Rate-limiting and spam prevention
-   12. Abusive and illegal content
-   13. Security considerations
-     13.1.  Transport Security
-   14. Normative References
+   12. Security considerations
+     12.1.  Transport Security
+   13. Normative References
    Authors' Addresses
 
 1.  Introduction
@@ -150,7 +149,7 @@ Table of Contents
 3.  Interfaces
 
    The MIMI DS protocol inherits the proposal-commit logic from MLS.
-   Any party that is either a group member, or that as added as an
+   Any party that is either a group member, or that was added as an
    external sender can propose changes to the group such as the
    addition, removal, or update of clients.  Group members can then
    change the group state in a commit operation.  A commit MUST include
@@ -166,9 +165,9 @@ Table of Contents
    member) or request key material (MLS KeyPackages, required by group
    members to add new group members) of the DS' clients.
 
-   Group members and external senders can send send proposals to the
-   group.  The MIMI DS protocol supports any MLS proposal supported by
-   the specific group in question.  The proposals specified in [RFC9420]
+   Group members and external senders can send proposals to the group.
+   The MIMI DS protocol supports any MLS proposal supported by the
+   specific group in question.  The proposals specified in [RFC9420]
    provide the baseline operations:
 
    *  Add proposals (to add new group members)
@@ -476,14 +475,14 @@ Client           Hub                               Guest Delivery Service
    request.
 
    enum {
-     Anonymous,
+     Unauthenticated,
      ClientSignature,
    } DSAuthType;
 
    struct {
      DSAuthType auth_type;
      select (DSAuthData.auth_type) {
-       case Anonymous:
+       case Unauthenticated:
          struct {};
        case ClientSignature:
          uint32 sender_index;
@@ -789,7 +788,6 @@ Client           Hub                               Guest Delivery Service
 
    struct {
      MLSMessage proposals<V>;
-     MLSMessage welcome_messages<V>;
    } AddClientsRequest;
 
    *Validation:*
@@ -815,6 +813,7 @@ Client           Hub                               Guest Delivery Service
 
    struct {
      MLSGroupUpdate group_updates<V>;
+     MLSMessage welcome_messages<V>;
    } RemoveClientsRequest;
 
    *Validation:*
@@ -904,18 +903,7 @@ Client           Hub                               Guest Delivery Service
    block connection requests from one specific other client without
    blocking connection requests from all other clients of that DS.
 
-12.  Abusive and illegal content
-
-   As all application messages are encrypted, the DS has no way of
-   analyzing their content for illegal or abusive content.  It may make
-   use of a message franking scheme to allow its clients to report such
-   content, although this is beyond the scope of this document.
-
-   Additionally, in the same way as a DS might allow its clients to
-   block certain messages from specific clients in the context of spam
-   prevention, it may do the same based on abusive or illegal content.
-
-13.  Security considerations
+12.  Security considerations
 
    TODO: There is currently no consensus in the MIMI w.r.t. the security
    goals we want to reach.
@@ -923,7 +911,7 @@ Client           Hub                               Guest Delivery Service
    The underlying MLS protocol provides end-to-end encryption and
    authentication for all MLSMessages, as well as group state agreement.
 
-13.1.  Transport Security
+12.1.  Transport Security
 
    Transport of DSFanoutRequests, as well as their responses MUST use a
    recipient authenticated transport.  This is to ensure that these
@@ -932,7 +920,7 @@ Client           Hub                               Guest Delivery Service
    To protect the metadata in all request-response flows, requests and
    responses SHOULD be secured using an encrypted transport channel.
 
-14.  Normative References
+13.  Normative References
 
    [I-D.ietf-mls-protocol]
               Barnes, R., Beurdouche, B., Robert, R., Millican, J.,

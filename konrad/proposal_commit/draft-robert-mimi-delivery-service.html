@@ -1208,21 +1208,18 @@ svg :is([fill="white"], [fill^="#fff"]) {
             <p id="section-toc.1-1.11.1"><a href="#section-11" class="auto internal xref">11</a>. <a href="#name-rate-limiting-and-spam-prev" class="internal xref">Rate-limiting and spam prevention</a></p>
 </li>
           <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12">
-            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-abusive-and-illegal-content" class="internal xref">Abusive and illegal content</a></p>
-</li>
-          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
-            <p id="section-toc.1-1.13.1"><a href="#section-13" class="auto internal xref">13</a>. <a href="#name-security-considerations" class="internal xref">Security considerations</a></p>
+            <p id="section-toc.1-1.12.1"><a href="#section-12" class="auto internal xref">12</a>. <a href="#name-security-considerations" class="internal xref">Security considerations</a></p>
 <ul class="compact toc ulBare ulEmpty">
-<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13.2.1">
-                <p id="section-toc.1-1.13.2.1.1"><a href="#section-13.1" class="auto internal xref">13.1</a>.  <a href="#name-transport-security" class="internal xref">Transport Security</a></p>
+<li class="compact toc ulBare ulEmpty" id="section-toc.1-1.12.2.1">
+                <p id="section-toc.1-1.12.2.1.1"><a href="#section-12.1" class="auto internal xref">12.1</a>.  <a href="#name-transport-security" class="internal xref">Transport Security</a></p>
 </li>
             </ul>
 </li>
-          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
-            <p id="section-toc.1-1.14.1"><a href="#section-14" class="auto internal xref">14</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.13">
+            <p id="section-toc.1-1.13.1"><a href="#section-13" class="auto internal xref">13</a>. <a href="#name-normative-references" class="internal xref">Normative References</a></p>
 </li>
-          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.15">
-            <p id="section-toc.1-1.15.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
+          <li class="compact toc ulBare ulEmpty" id="section-toc.1-1.14">
+            <p id="section-toc.1-1.14.1"><a href="#appendix-A" class="auto internal xref"></a><a href="#name-authors-addresses" class="internal xref">Authors' Addresses</a></p>
 </li>
         </ul>
 </nav>
@@ -1311,7 +1308,7 @@ that maps to the DS domain of the client's DS.<a href="#section-2-2.3.1" class="
 <a href="#section-3" class="section-number selfRef">3. </a><a href="#name-interfaces" class="section-name selfRef">Interfaces</a>
       </h2>
 <p id="section-3-1">The MIMI DS protocol inherits the proposal-commit logic from MLS. Any party that
-is either a group member, or that as added as an external sender can propose
+is either a group member, or that was added as an external sender can propose
 changes to the group such as the addition, removal, or update of clients. Group
 members can then change the group state in a commit operation. A commit MUST
 include all valid previously received proposals, as well as any valid proposals
@@ -1323,7 +1320,7 @@ the current group information (an MLS GroupInfo, required for clients to join
 the group without the help of a group member) or request key material (MLS
 KeyPackages, required by group members to add new group members) of the DS'
 clients.<a href="#section-3-3" class="pilcrow">¶</a></p>
-<p id="section-3-4">Group members and external senders can send send proposals to the group. The
+<p id="section-3-4">Group members and external senders can send proposals to the group. The
 MIMI DS protocol supports any MLS proposal supported by the specific group in
 question. The proposals specified in <span>[<a href="#RFC9420" class="cite xref">RFC9420</a>]</span> provide the baseline
 operations:<a href="#section-3-4" class="pilcrow">¶</a></p>
@@ -1706,14 +1703,14 @@ contains the data necessary for the DS to authenticate the request.<a href="#sec
 <div class="lang-tls sourcecode" id="section-6.1-5">
 <pre>
 enum {
-  Anonymous,
+  Unauthenticated,
   ClientSignature,
 } DSAuthType;
 
 struct {
   DSAuthType auth_type;
   select (DSAuthData.auth_type) {
-    case Anonymous:
+    case Unauthenticated:
       struct {};
     case ClientSignature:
       uint32 sender_index;
@@ -2037,7 +2034,6 @@ the group state. Each change is encoded as an MLS proposal.<a href="#section-9.2
 <pre>
 struct {
   MLSMessage proposals&lt;V&gt;;
-  MLSMessage welcome_messages&lt;V&gt;;
 } AddClientsRequest;
 </pre><a href="#section-9.2-2" class="pilcrow">¶</a>
 </div>
@@ -2070,6 +2066,7 @@ lost group state).<a href="#section-9.3-3" class="pilcrow">¶</a></p>
 <pre>
 struct {
   MLSGroupUpdate group_updates&lt;V&gt;;
+  MLSMessage welcome_messages&lt;V&gt;;
 } RemoveClientsRequest;
 </pre><a href="#section-9.3-4" class="pilcrow">¶</a>
 </div>
@@ -2191,47 +2188,33 @@ from one specific other client without blocking connection requests from all oth
 clients of that DS.<a href="#section-11-4" class="pilcrow">¶</a></p>
 </section>
 </div>
-<div id="abusive-and-illegal-content">
-<section id="section-12">
-      <h2 id="name-abusive-and-illegal-content">
-<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-abusive-and-illegal-content" class="section-name selfRef">Abusive and illegal content</a>
-      </h2>
-<p id="section-12-1">As all application messages are encrypted, the DS has no way of analyzing their
-content for illegal or abusive content. It may make use of a message franking
-scheme to allow its clients to report such content, although this is beyond the
-scope of this document.<a href="#section-12-1" class="pilcrow">¶</a></p>
-<p id="section-12-2">Additionally, in the same way as a DS might allow its clients to block certain
-messages from specific clients in the context of spam prevention, it may do the
-same based on abusive or illegal content.<a href="#section-12-2" class="pilcrow">¶</a></p>
-</section>
-</div>
 <div id="security-considerations">
-<section id="section-13">
+<section id="section-12">
       <h2 id="name-security-considerations">
-<a href="#section-13" class="section-number selfRef">13. </a><a href="#name-security-considerations" class="section-name selfRef">Security considerations</a>
+<a href="#section-12" class="section-number selfRef">12. </a><a href="#name-security-considerations" class="section-name selfRef">Security considerations</a>
       </h2>
-<p id="section-13-1">TODO: There is currently no consensus in the MIMI w.r.t. the security goals we
-want to reach.<a href="#section-13-1" class="pilcrow">¶</a></p>
-<p id="section-13-2">The underlying MLS protocol provides end-to-end encryption and authentication
-for all MLSMessages, as well as group state agreement.<a href="#section-13-2" class="pilcrow">¶</a></p>
+<p id="section-12-1">TODO: There is currently no consensus in the MIMI w.r.t. the security goals we
+want to reach.<a href="#section-12-1" class="pilcrow">¶</a></p>
+<p id="section-12-2">The underlying MLS protocol provides end-to-end encryption and authentication
+for all MLSMessages, as well as group state agreement.<a href="#section-12-2" class="pilcrow">¶</a></p>
 <div id="transport-security">
-<section id="section-13.1">
+<section id="section-12.1">
         <h3 id="name-transport-security">
-<a href="#section-13.1" class="section-number selfRef">13.1. </a><a href="#name-transport-security" class="section-name selfRef">Transport Security</a>
+<a href="#section-12.1" class="section-number selfRef">12.1. </a><a href="#name-transport-security" class="section-name selfRef">Transport Security</a>
         </h3>
-<p id="section-13.1-1">Transport of DSFanoutRequests, as well as their responses MUST use a recipient
+<p id="section-12.1-1">Transport of DSFanoutRequests, as well as their responses MUST use a recipient
 authenticated transport. This is to ensure that these messages are mutually
-authenticated.<a href="#section-13.1-1" class="pilcrow">¶</a></p>
-<p id="section-13.1-2">To protect the metadata in all request-response flows, requests and responses
-SHOULD be secured using an encrypted transport channel.<a href="#section-13.1-2" class="pilcrow">¶</a></p>
+authenticated.<a href="#section-12.1-1" class="pilcrow">¶</a></p>
+<p id="section-12.1-2">To protect the metadata in all request-response flows, requests and responses
+SHOULD be secured using an encrypted transport channel.<a href="#section-12.1-2" class="pilcrow">¶</a></p>
 </section>
 </div>
 </section>
 </div>
 <div id="sec-normative-references">
-<section id="section-14">
+<section id="section-13">
       <h2 id="name-normative-references">
-<a href="#section-14" class="section-number selfRef">14. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
+<a href="#section-13" class="section-number selfRef">13. </a><a href="#name-normative-references" class="section-name selfRef">Normative References</a>
       </h2>
 <dl class="references">
 <dt id="I-D.ietf-mls-protocol">[I-D.ietf-mls-protocol]</dt>

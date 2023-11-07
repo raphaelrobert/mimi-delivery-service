@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2023-11-05T00:07:29.239308+00:00",
+  "timestamp": "2023-11-07T00:07:01.164563+00:00",
   "repo": "raphaelrobert/mimi-delivery-service",
   "labels": [
     {
@@ -574,7 +574,7 @@
       "id": "PR_kwDOIYehyc5egdno",
       "title": "Move to proposal-commit logic",
       "url": "https://github.com/raphaelrobert/mimi-delivery-service/pull/14",
-      "state": "OPEN",
+      "state": "MERGED",
       "author": "kkohbrok",
       "authorAssociation": "COLLABORATOR",
       "assignees": [
@@ -583,17 +583,19 @@
       "labels": [],
       "body": "",
       "createdAt": "2023-11-03T08:09:33Z",
-      "updatedAt": "2023-11-03T14:04:25Z",
+      "updatedAt": "2023-11-06T20:03:48Z",
       "baseRepository": "raphaelrobert/mimi-delivery-service",
       "baseRefName": "main",
       "baseRefOid": "6414b4072010f222349d15187856769408fb0308",
       "headRepository": "raphaelrobert/mimi-delivery-service",
       "headRefName": "konrad/proposal_commit",
-      "headRefOid": "58d993f0e6e29833ed8ecbc2ac759543fe54ce56",
-      "closedAt": null,
-      "mergedAt": null,
-      "mergedBy": null,
-      "mergeCommit": null,
+      "headRefOid": "310c3ccf2099511086fb644f7fcde6d37241180a",
+      "closedAt": "2023-11-06T20:03:48Z",
+      "mergedAt": "2023-11-06T20:03:48Z",
+      "mergedBy": "kkohbrok",
+      "mergeCommit": {
+        "oid": "24f83880c54d3a4e668f29507d579fa5d6190ba0"
+      },
       "comments": [],
       "reviews": [
         {
@@ -625,6 +627,26 @@
               "body": "Maybe MUST?",
               "createdAt": "2023-11-03T14:04:12Z",
               "updatedAt": "2023-11-03T14:04:25Z"
+            }
+          ]
+        },
+        {
+          "id": "PRR_kwDOIYehyc5mL4ZB",
+          "commit": {
+            "abbreviatedOid": "19bc0a4"
+          },
+          "author": "kkohbrok",
+          "authorAssociation": "COLLABORATOR",
+          "state": "COMMENTED",
+          "body": "",
+          "createdAt": "2023-11-06T07:11:43Z",
+          "updatedAt": "2023-11-06T07:13:30Z",
+          "comments": [
+            {
+              "originalPosition": 42,
+              "body": "Good point. I mostly wanted to give an overview over the operations that are generally possible. But of course, the MIMI DS protocol itself does not impose any particular restrictions.",
+              "createdAt": "2023-11-06T07:11:44Z",
+              "updatedAt": "2023-11-06T07:13:30Z"
             }
           ]
         }

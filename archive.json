@@ -1,6 +1,6 @@
 {
   "magic": "E!vIA5L86J2I",
-  "timestamp": "2024-08-01T00:09:07.895136+00:00",
+  "timestamp": "2024-08-04T00:08:39.451292+00:00",
   "repo": "raphaelrobert/mimi-delivery-service",
   "labels": [
     {
@@ -277,7 +277,7 @@
       "baseRepository": "raphaelrobert/mimi-delivery-service",
       "baseRefName": "main",
       "baseRefOid": "c832175b9731df39fbbe1dbb0c2d2658d62414dc",
-      "headRepository": "TWal/mimi-delivery-service",
+      "headRepository": null,
       "headRefName": "twal_fix_typos",
       "headRefOid": "fbd982ebdf8b77ce3e616e880da60428b5981c33",
       "closedAt": "2023-07-12T14:12:03Z",
